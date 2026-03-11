@@ -162,6 +162,47 @@
 
 **Responsibility:** All agents must follow this protocol when stopping/restarting MCP server.
 
+### 9. Coverage Gap Tests Implementation (Switch — 2026-03-14)
+
+**Status:** ✅ Implemented
+
+**Summary:** Implemented 21 new unit tests addressing three prioritized coverage gaps from the audit assessment.
+
+**Tests Added:**
+
+1. **ProxyHostedService (12 tests)** — HIGH PRIORITY ✅
+   - ExecuteAsync: store initialization, event wiring
+   - OnTrafficCaptured: default session creation, session ID assignment, no duplicate sessions, error resilience
+   - StopAsync: engine stop when running/not running, session close when active/inactive, error tolerance, event unwiring
+
+2. **SystemProxyManager (7 tests, 1 skip)** — MEDIUM PRIORITY ✅
+   - DisableSystemProxy without prior Enable is a safe no-op
+   - Dispose without Enable, Dispose idempotency
+   - Event handler registration/cleanup lifecycle
+   - EnableSystemProxy on non-Windows (skipped on Windows, runs on Ubuntu CI)
+
+3. **VACUUM verification (2 tests)** — LOWER PRIORITY ✅
+   - ClearTrafficAsync compacts database (verified via PRAGMA page_count)
+   - DeleteSessionAsync compacts database (verified via PRAGMA page_count)
+
+**Technical Decisions:**
+
+1. **BackgroundService timing:** Used `await Task.Delay(100)` helper after `StartAsync` to handle .NET 10's async `ExecuteAsync` scheduling. Pragmatic approach over fragile synchronization.
+
+2. **VACUUM verification strategy:** WAL mode makes file size comparisons unreliable. Used `PRAGMA page_count` with WAL checkpoint — page count drops after DELETE + VACUUM but stays same after DELETE alone. This proves VACUUM execution without needing to intercept SQL.
+
+3. **SystemProxyManager:** Tests verify safe/observable behavior only (no registry modification). The non-Windows path test uses `Assert.Skip` for CI cross-platform coverage.
+
+**Results:**
+- Total tests now 122 (was 101, +21 new)
+- All tests pass on Windows; 1 conditional skip + passes on Ubuntu CI
+- No regressions in existing test suite
+
+**Files Modified:**
+- tests/HttpProxyMcp.Tests/ProxyHostedServiceTests.cs (+12)
+- tests/HttpProxyMcp.Tests/SystemProxyManagerTests.cs (+7)
+- tests/HttpProxyMcp.Tests/VacuumTests.cs (+2, new file)
+
 ---
 
 ## Governance
