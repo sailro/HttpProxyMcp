@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HttpProxyMcp.Core/HttpProxyMcp.Core.csproj" />
+    <Project Path="src/HttpProxyMcp.McpServer/HttpProxyMcp.McpServer.csproj" />
+    <Project Path="src/HttpProxyMcp.Proxy/HttpProxyMcp.Proxy.csproj" />
+    <Project Path="src/HttpProxyMcp.Storage/HttpProxyMcp.Storage.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HttpProxyMcp.Tests/HttpProxyMcp.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-HttpProxyMcp.McpServer-711f7348-8c3b-4af4-aa78-91b52a214ac0</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.4" />
+    <PackageReference Include="ModelContextProtocol" Version="1.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HttpProxyMcp.Core\HttpProxyMcp.Core.csproj" />
+    <ProjectReference Include="..\HttpProxyMcp.Proxy\HttpProxyMcp.Proxy.csproj" />
+    <ProjectReference Include="..\HttpProxyMcp.Storage\HttpProxyMcp.Storage.csproj" />
+  </ItemGroup>
+</Project>
