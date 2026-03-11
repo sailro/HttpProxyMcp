@@ -82,3 +82,22 @@ Also cleaned up a stale bullet in this history file referencing "when Tank and M
 ### Team Cross-Updates (2026-03-11)
 - **Morpheus's code audit:** Project in excellent state; documentation comprehensive and current; no architectural drift detected.
 - **Mouse's storage verification:** Confirmed all 13 MCP tools properly annotated, ProxyHostedService event wiring correct, VACUUM behavior implemented. No changes needed.
+
+### Coverage Gap Tests Written (2026-03-14)
+
+**21 new tests written and passing.** Total test count: 122 (121 pass, 1 skipped on Windows).
+
+#### New Test Files
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `ProxyHostedServiceTests.cs` | 12 | ExecuteAsync initialization, event wiring, OnTrafficCaptured default session creation, session ID assignment, error resilience, StopAsync engine stop/skip, session close/skip, error tolerance, event unwiring |
+| `Proxy/SystemProxyManagerTests.cs` | 7 (1 skip) | DisableSystemProxy without prior Enable is no-op, Dispose without Enable, Dispose idempotency, event handler lifecycle, EnableSystemProxy non-Windows skip |
+| `Storage/VacuumTests.cs` | 2 | ClearTrafficAsync VACUUM compaction via page_count, DeleteSessionAsync VACUUM compaction via page_count |
+
+#### Key Patterns & Learnings
+- **BackgroundService timing:** `ExecuteAsync` runs asynchronously even when the first await is on a completed Task (.NET 10). Must add `await Task.Delay(100)` after `StartAsync` in tests — created `StartServiceAsync()` helper.
+- **async void event handlers:** `OnTrafficCaptured` is `async void`; need `await Task.Delay(100)` after raising events to let the handler complete before asserting.
+- **NSubstitute event tracking:** NSubstitute properly tracks `+=` and `-=` on mocked events — `Raise.Event` only fires to currently-subscribed handlers.
+- **WAL mode VACUUM testing:** File size comparisons (db + wal + shm) are unreliable with WAL mode. Used `PRAGMA page_count` with WAL checkpoint before measuring — page count drops after DELETE + VACUUM, stays same after DELETE alone.
+- **xUnit v3 Assert.Skip:** Works for conditional platform skipping (non-Windows test skipped on Windows, runs on Ubuntu CI).
