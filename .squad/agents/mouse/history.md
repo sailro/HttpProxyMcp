@@ -9,6 +9,54 @@
 
 ## Learnings
 
+### Post-Session Alignment Audit (2026-03-12)
+
+**Audit Scope:** Verify MCP tools, storage layer, and hosted service alignment after recent changes.
+
+**Checklist Results:**
+
+1. ✅ **MCP Tool [Description] Attributes** — All 13 tools have proper [Description] attributes on both class-level and parameter-level
+   - TrafficTools: ListTraffic, GetTrafficEntry, SearchBodies, GetStatistics, ClearTraffic (5 tools)
+   - SessionTools: ListSessions, CreateSession, SetActiveSession, CloseSession, DeleteSession (5 tools)
+   - ProxyControlTools: StartProxy, StopProxy, GetProxyStatus (3 tools)
+   - All parameters are documented
+
+2. ✅ **ProxyHostedService Wiring** — Correctly implements event-driven traffic capture and session lifecycle
+   - ExecuteAsync: Initializes storage, wires TrafficCaptured event → OnTrafficCaptured handler
+   - OnTrafficCaptured: Assigns entry to active session (auto-creates "default" if none exists), persists via store
+   - StopAsync: Unsubscribes from TrafficCaptured, stops proxy engine, closes active session before shutdown
+   - Session closure prevents "active" state bleeding across process restarts
+
+3. ✅ **VACUUM Calls After Deletions** — Both delete operations properly reclaim disk space
+   - SqliteTrafficStore.ClearTrafficAsync: Calls VACUUM after DELETE FROM traffic_entries (line 280)
+   - SqliteSessionManager.DeleteSessionAsync: Calls VACUUM after DELETE FROM sessions with FK cascade (line 133)
+   - Both operations enable PRAGMA foreign_keys=ON; to ensure cascading behavior
+
+4. ✅ **StartProxy Tool setSystemProxy Parameter** — Properly exposed with description
+   - Method signature: StartProxy(..., bool setSystemProxy = true) with [Description]("Auto-configure Windows system proxy (default: true)")
+   - Parameter is passed to ProxyConfiguration and used correctly
+   - README.md documents this parameter in the MCP Tools Reference table
+
+5. ✅ **Storage Connection String Documentation** — Located and documented in multiple places
+   - Default: "Data Source=traffic.db" (StorageServiceExtensions.cs, line 13)
+   - StorageServiceExtensions.AddStorageServices() method accepts connectionString parameter for customization
+   - README.md section "### Storage" explains database persists to SQLite and mentions traffic.db
+   - Connection string allows flexible location via DI parameter
+
+6. ✅ **Stale Squad Agent Comments** — No stale references found
+   - Grep search for "Morpheus|Tank|Mouse|Switch|Scribe" across src/ returned no matches
+   - All comments are generic ("Hosted service that initializes...", "MCP tools for...", etc.)
+   - Team charter referenced only in history.md (appropriate knowledge artifact, not code)
+
+**Technical Details Verified:**
+- ServiceRegistration.cs properly chains AddProxyServices() → AddStorageServices()
+- Program.cs calls AddProxyServices() which includes storage initialization
+- All tools use [McpServerTool] + [McpServerToolType] for auto-discovery
+- TrafficRow/SessionRow mappers use snake_case with Dapper's MatchNamesWithUnderscores
+- Headers/bodies serialized correctly for list vs detail queries
+
+**Conclusion:** All components are properly aligned. No changes needed.
+
 ### Architecture Foundation (2026-03-11)
 - **Framework & Stack:** .NET 10, C#, SQLite with Titanium.Web.Proxy, Microsoft.Data.Sqlite, and official MCP SDK
 - **Proxy Architecture:** 5-project structure with Core, Proxy, Storage, McpServer, Tests modules

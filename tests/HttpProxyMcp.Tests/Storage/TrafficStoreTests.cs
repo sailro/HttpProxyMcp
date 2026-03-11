@@ -6,9 +6,9 @@ using NSubstitute;
 
 namespace HttpProxyMcp.Tests.Storage;
 
-// Tests for ITrafficStore implementations.
-// Uses NSubstitute to verify store contract behavior.
-// When a real implementation lands, these can be upgraded to integration tests.
+// Tests for ITrafficStore contract behavior via NSubstitute mocks.
+// The real SqliteTrafficStore is implemented — these validate the
+// interface contract and tool-level formatting expectations.
 public class TrafficStoreTests
 {
     private readonly ITrafficStore _store;

@@ -6,9 +6,11 @@ using NSubstitute;
 
 namespace HttpProxyMcp.Tests.Proxy;
 
-// Tests for IProxyEngine contract behavior.
+// Tests for IProxyEngine contract behavior via the IProxyEngine interface.
 // These verify the engine lifecycle, event firing, and concurrent request handling.
-// When Tank delivers the Titanium.Web.Proxy implementation, upgrade to real tests.
+// The real ProxyEngine (Titanium.Web.Proxy) is implemented — these mock-based tests
+// validate the interface contract. Integration tests against the real engine require
+// a running proxy and are out of scope here.
 public class ProxyEngineTests
 {
     private readonly IProxyEngine _engine;

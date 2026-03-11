@@ -72,6 +72,98 @@
 
 **Recommendation:** Keep TrafficEntry clean as POCO. If it becomes cumbersome, introduce TrafficCapturedEventArgs wrapper, but current design is simpler and works fine.
 
+### 5. Code & Documentation Audit (Morpheus — 2026-03-14)
+
+**Status:** ✅ Approved & Archived
+
+**Scope:** README.md, .github/copilot-instructions.md, CLAUDE.md, AGENTS.md, .gitignore, source code staleness audit
+
+**Findings:**
+- README.md: Comprehensive and accurate; all 13 MCP tools documented with correct parameters; architecture sections align with code
+- Copilot instructions: Up-to-date; code conventions, storage design, testing patterns, Windows proxy management match actual implementation
+- CLAUDE.md / AGENTS.md: Correctly redirect to copilot-instructions.md
+- Source code: Clean; no stale comments (Tank/Mouse/Switch/Morpheus squad references, TODO/FIXME/HACK/STUB absent)
+- .gitignore: Comprehensive; covers .NET artifacts, Squad runtime state, SQLite databases, Node modules
+- Minor note: Custom instruction claims "101 tests across 9 files"; actual is 8 test files (excluding 2 helper files) — no functional impact
+
+**Architecture Verifications:**
+- MCP tools auto-discovery: All 13 tools decorated with [McpServerToolType] and [McpServerTool] ✓
+- DI patterns: MCP tools use static async methods with parameter injection ✓
+- Storage schema: Dapper + SQLite with WAL mode, FK cascading, BLOB bodies, JSON headers ✓
+- Event-driven architecture: ProxyEngine.TrafficCaptured → ProxyHostedService → SqliteTrafficStore ✓
+- System proxy management: Windows-only, snapshots/restores, idempotent cleanup ✓
+
+**Recommendations (Non-blocking):**
+1. Update custom instruction test count if precision needed
+2. Document RootCertificateManager's default PFX path (platform-specific, in AppData) in README
+3. Add .gitignore comment explaining why *.pfx not excluded (stored outside repo)
+
+**Conclusion:** Project in excellent state. Documentation is comprehensive and current. No architectural drift or stale code detected.
+
+### 6. Test Coverage Gaps Assessment (Switch — 2026-03-11)
+
+**Status:** ℹ️ Documented (No change required)
+
+**Test Suite Overview:** 101 tests passing across 8 test files; 3 stale comments cleaned up
+
+**Coverage Gaps Identified (Non-critical):**
+1. **ProxyHostedService** — Auto-close active session on shutdown, event wiring, session assignment
+   - Status: Straightforward to unit test with mocked dependencies; high value
+2. **SystemProxyManager** — Windows registry manipulation, P/Invoke, snapshot/restore, crash-safe cleanup
+   - Status: Requires Windows registry access; unit test with abstraction or integration test
+3. **RootCertificateManager** — Cert generation, PFX load/persist, X509 chain building
+   - Status: Medium difficulty; important for HTTPS interception
+4. **ProxyEngine (real implementation)** — Network binding, actual HTTP/HTTPS interception
+   - Current: 12 tests mock IProxyEngine (interface contract only)
+   - Proposal: Opt-in integration tests on ephemeral port with real HTTP client
+5. **VACUUM behavior** — File size shrinkage after ClearTrafficAsync and session delete
+   - Status: Low priority; implementation detail
+
+**Recommendation:** Priority order: ProxyHostedService (easy wins, high value) → SystemProxyManager → RootCertificateManager → real ProxyEngine integration → VACUUM tests.
+
+**Note:** Stale test comments fixed:
+- ProxyEngineTests.cs: "When Tank delivers..." removed
+- IntegrationTests.cs: "real implementations being built..." removed
+- TrafficStoreTests.cs: "When implementation lands..." removed
+
+### 7. MCP Tools & Storage Alignment Verification (Mouse — 2026-03-12)
+
+**Status:** ✅ Verified & Approved
+
+**Scope:** Post-implementation audit of MCP tools, storage layer, hosted service wiring
+
+**Verification Results:**
+- ✅ All 13 MCP tools properly decorated with [McpServerToolType] and [McpServerTool]
+- ✅ All tools have [Description] attributes at class and parameter level
+- ✅ TrafficTools (5), SessionTools (5), ProxyControlTools (3) all verified
+- ✅ ProxyHostedService correctly wires TrafficCaptured event → OnTrafficCaptured → storage persistence
+- ✅ Session lifecycle: auto-create "default" on first traffic, auto-close on shutdown
+- ✅ VACUUM properly called after ClearTrafficAsync and session delete for disk reclamation
+- ✅ StartProxy.setSystemProxy parameter properly exposed with documentation
+- ✅ No stale squad agent comments in code; only in history.md (correct usage)
+
+**Storage Layer Details:**
+- Dapper + SQLite with snake_case mapping via MatchNamesWithUnderscores
+- Headers: JSON TEXT columns; bodies: BLOB storage
+- List queries exclude bodies; detail queries include (performance optimization)
+- Default connection string: "Data Source=traffic.db" (customizable via DI)
+- FK cascade on session delete ensures data integrity
+- WAL mode enables concurrent read performance
+
+**Conclusion:** All components properly aligned. No changes required. Project ready for production use.
+
+### 8. User Directive: MCP Server Shutdown Protocol (2026-03-11T18:33:23Z)
+
+**Status:** ℹ️ Operating Procedure
+
+**Directive:** Never force-kill the MCP server process. Always call StopProxy via MCP first to gracefully restore system proxy settings.
+
+**Rationale:** Force-killing leaves Windows system proxy enabled with no server to respond, breaking the user's internet connection.
+
+**Responsibility:** All agents must follow this protocol when stopping/restarting MCP server.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

@@ -45,7 +45,7 @@ tests/HttpProxyMcp.Tests/
 - **FluentAssertions** for readable assertions
 - **TrafficEntryBuilder** — fluent builder with `Get()` / `Post()` factory methods
 - Integration tests marked with `[Trait("Category", "Integration")]`
-- Tests written against interfaces — will validate real implementations when Tank and Mouse deliver
+- Tests written against interfaces — real implementations are now delivered and running
 
 #### NuGet Packages Added
 - `NSubstitute 5.3.0`, `FluentAssertions 8.4.0`
@@ -59,3 +59,22 @@ tests/HttpProxyMcp.Tests/
 - Time range filtering (After/Before)
 - Session-scoped body search
 - Proxy idempotent start/stop messaging
+
+### Test Audit (2025-07-11)
+
+**Stale comment cleanup:** Found and fixed 3 stale comments referencing squad agents or "when X delivers/lands":
+1. `ProxyEngineTests.cs` — removed "When Tank delivers the Titanium.Web.Proxy implementation, upgrade to real tests"
+2. `IntegrationTests.cs` — removed "the real implementations are being built by Tank and Mouse"
+3. `TrafficStoreTests.cs` — removed "When a real implementation lands, these can be upgraded to integration tests"
+Also cleaned up a stale bullet in this history file referencing "when Tank and Mouse deliver."
+
+**ProxyEngineTests analysis:** All 12 tests mock `IProxyEngine` via NSubstitute — none test the real `ProxyEngine` class. These are interface-contract tests, not implementation tests.
+
+**Missing test coverage identified (no tests exist for):**
+- `SystemProxyManager` — Windows registry manipulation, P/Invoke, snapshot/restore
+- `ProxyHostedService` — auto-close active session on shutdown, event wiring
+- VACUUM after `ClearTrafficAsync` / session delete in `SqliteTrafficStore`
+- Crash-safe proxy cleanup (ProcessExit / CancelKeyPress hooks in SystemProxyManager)
+- `RootCertificateManager` — cert generation, PFX load/persist
+
+**Build note:** DLL locking prevents rebuild when McpServer process is running. Tests cannot be re-executed until the process is stopped.

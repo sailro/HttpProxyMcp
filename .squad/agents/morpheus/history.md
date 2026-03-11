@@ -12,6 +12,15 @@
 
 ## Learnings
 
+### Code & Documentation Reassessment (2026-03-14)
+- **README.md:** Comprehensive and accurate. All 13 MCP tools documented with correct parameters. Architecture, proxy control, system proxy, root CA sections all align with code.
+- **Copilot instructions:** Up-to-date. Code conventions, storage layer, testing patterns, Windows proxy management all match actual implementation.
+- **CLAUDE.md / AGENTS.md:** Correctly redirect to copilot-instructions.md.
+- **Source code cleanliness:** No stale comments (Tank/Mouse/Switch/Morpheus references, TODO/FIXME/HACK/STUB). Code is clean and production-ready.
+- **.gitignore:** Comprehensive coverage of .NET artifacts, Squad runtime state, SQLite databases, Node modules. Root CA certificates (*.pfx) not excluded by design — stored in user AppData, not repo.
+- **Minor note:** Custom instruction claims "101 tests across 9 files"; actual test file count is 8 (excluding 2 helper files). No functional impact.
+- **Recommendation:** Document RootCertificateManager's default PFX path in README for clarity.
+
 ### Architecture Decisions (2025-07-11)
 - .NET 10 SDK (10.0.200) confirmed available; `net10.0` TFM works natively with `dotnet new`
 - .NET 10 uses `.slnx` format by default (not `.sln`)

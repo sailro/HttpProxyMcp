@@ -10,10 +10,9 @@ namespace HttpProxyMcp.Tests;
 // Integration tests verifying the full flow:
 // proxy captures → storage persists → MCP tools query.
 // 
-// These use mocks to simulate the proxy/storage interactions since
-// the real implementations are being built by Tank and Mouse.
-// Mark real integration tests with [Trait("Category", "Integration")]
-// once we can spin up a real proxy.
+// These use mocks to simulate the proxy/storage/MCP interactions.
+// The real ProxyEngine and SqliteTrafficStore are implemented.
+// These mock-based tests validate the wiring and data flow contracts.
 [Trait("Category", "Integration")]
 public class IntegrationTests
 {
