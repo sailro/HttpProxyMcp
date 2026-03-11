@@ -27,7 +27,12 @@ public sealed class ProxyControlTools
         }
         catch (Exception ex)
         {
-            return $"Failed to start proxy on port {port}: {ex.Message}";
+            // Unwrap inner exceptions to surface the real cause (e.g. SocketException)
+            var rootCause = ex;
+            while (rootCause.InnerException is not null)
+                rootCause = rootCause.InnerException;
+
+            return $"Failed to start proxy on port {port}: {rootCause.Message}";
         }
 
         var sysProxyMsg = setSystemProxy ? " System proxy configured." : "";

@@ -63,14 +63,19 @@ public sealed class ProxyEngine(
         {
             _proxyServer.Start();
         }
-        catch (System.Net.Sockets.SocketException ex)
+        catch (Exception ex)
         {
-            // Port is likely already in use — clean up the partially-created proxy server
-            _proxyServer.Dispose();
+            // Titanium wraps SocketException in its own exception — unwrap to get the real cause
+            _proxyServer?.Dispose();
             _proxyServer = null;
             _endPoint = null;
+
+            var rootCause = ex;
+            while (rootCause.InnerException is not null)
+                rootCause = rootCause.InnerException;
+
             throw new InvalidOperationException(
-                $"Could not bind to port {configuration.Port}: {ex.Message}", ex);
+                $"Could not start proxy on port {configuration.Port}: {rootCause.Message}", ex);
         }
 
         IsRunning = true;
