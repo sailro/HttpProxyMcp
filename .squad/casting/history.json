@@ -1,0 +1,17 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "The Matrix",
+      "project": "httpproxymcp",
+      "assigned_at": "2026-03-11T00:00:00Z"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "httpproxymcp-2026-03-11": {
+      "assignment_id": "httpproxymcp-2026-03-11",
+      "universe": "The Matrix",
+      "agents": ["Morpheus", "Tank", "Mouse", "Switch"],
+      "created_at": "2026-03-11T00:00:00Z"
+    }
+  }
+}

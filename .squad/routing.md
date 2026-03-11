@@ -6,12 +6,13 @@ How to decide who handles what.
 
 | Work Type | Route To | Examples |
 |-----------|----------|----------|
-| {domain 1} | {Name} | {example tasks} |
-| {domain 2} | {Name} | {example tasks} |
-| {domain 3} | {Name} | {example tasks} |
-| Code review | {Name} | Review PRs, check quality, suggest improvements |
-| Testing | {Name} | Write tests, find edge cases, verify fixes |
-| Scope & priorities | {Name} | What to build next, trade-offs, decisions |
+| Architecture & design | Morpheus | System structure, component boundaries, interface contracts |
+| Proxy engine & networking | Tank | HTTP/HTTPS listener, MITM interception, TLS certs, connection handling |
+| Storage & data access | Mouse | SQLite schema, data layer, traffic persistence |
+| MCP server & tools | Mouse | MCP tool implementations, query endpoints, proxy control tools |
+| Code review | Morpheus | Review PRs, check quality, suggest improvements |
+| Testing | Switch | Write tests, find edge cases, verify fixes |
+| Scope & priorities | Morpheus | What to build next, trade-offs, decisions |
 | Async issue work (bugs, tests, small features) | @copilot 🤖 | Well-defined tasks matching capability profile |
 | Session logging | Scribe | Automatic — never needs routing |
 

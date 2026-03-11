@@ -1,0 +1,36 @@
+{
+  "agents": {
+    "morpheus": {
+      "persistent_name": "Morpheus",
+      "universe": "The Matrix",
+      "role": "Lead / Architect",
+      "created_at": "2026-03-11T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "tank": {
+      "persistent_name": "Tank",
+      "universe": "The Matrix",
+      "role": "Backend Dev — Proxy & Networking",
+      "created_at": "2026-03-11T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "mouse": {
+      "persistent_name": "Mouse",
+      "universe": "The Matrix",
+      "role": "Backend Dev — Storage & MCP",
+      "created_at": "2026-03-11T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "switch": {
+      "persistent_name": "Switch",
+      "universe": "The Matrix",
+      "role": "Tester / QA",
+      "created_at": "2026-03-11T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    }
+  }
+}
