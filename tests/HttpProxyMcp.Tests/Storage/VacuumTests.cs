@@ -83,7 +83,7 @@ public class VacuumTests : IAsyncLifetime
         var pagesBefore = await GetPageCount();
         pagesBefore.Should().BeGreaterThan(50, "bulk data should occupy many pages");
 
-        await _store.ClearTrafficAsync(session.Id);
+        await _store.ClearTrafficAsync(session.Id, TestContext.Current.CancellationToken);
 
         // After DELETE + VACUUM, page count should drop dramatically.
         // Without VACUUM, freed pages stay allocated (page_count unchanged).
@@ -93,7 +93,7 @@ public class VacuumTests : IAsyncLifetime
             "VACUUM should compact the database after deleting traffic entries");
 
         // Verify data is actually gone
-        var count = await _store.CountTrafficAsync(new TrafficFilter { SessionId = session.Id });
+        var count = await _store.CountTrafficAsync(new TrafficFilter { SessionId = session.Id }, TestContext.Current.CancellationToken);
         count.Should().Be(0);
     }
 
@@ -107,7 +107,7 @@ public class VacuumTests : IAsyncLifetime
         var pagesBefore = await GetPageCount();
         pagesBefore.Should().BeGreaterThan(50, "bulk data should occupy many pages");
 
-        await _sessionManager.DeleteSessionAsync(session.Id);
+        await _sessionManager.DeleteSessionAsync(session.Id, TestContext.Current.CancellationToken);
 
         // After cascaded DELETE + VACUUM, page count should drop dramatically
         await ForceWalCheckpoint();

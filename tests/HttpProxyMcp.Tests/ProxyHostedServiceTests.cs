@@ -62,7 +62,7 @@ public class ProxyHostedServiceTests : IAsyncDisposable
         var entry = TrafficEntryBuilder.Get().Build();
         _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         await _store.Received(1).SaveTrafficEntryAsync(
             Arg.Is<TrafficEntry>(e => e.SessionId == sessionId),
@@ -86,7 +86,7 @@ public class ProxyHostedServiceTests : IAsyncDisposable
         var entry = TrafficEntryBuilder.Get().Build();
         _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         await _sessionManager.Received(1).CreateSessionAsync("default", Arg.Any<CancellationToken>());
         await _store.Received(1).SaveTrafficEntryAsync(
@@ -105,7 +105,7 @@ public class ProxyHostedServiceTests : IAsyncDisposable
         var entry = TrafficEntryBuilder.Get().Build();
         _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         entry.SessionId.Should().Be(sessionId);
         await _store.Received(1).SaveTrafficEntryAsync(entry, Arg.Any<CancellationToken>());
@@ -121,7 +121,7 @@ public class ProxyHostedServiceTests : IAsyncDisposable
         var entry = TrafficEntryBuilder.Get().Build();
         _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         await _sessionManager.DidNotReceive().CreateSessionAsync(
             Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -139,7 +139,7 @@ public class ProxyHostedServiceTests : IAsyncDisposable
         var entry = TrafficEntryBuilder.Get().Build();
         _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         // Service survived the error — verify the save was attempted
         await _store.Received(1).SaveTrafficEntryAsync(entry, Arg.Any<CancellationToken>());
@@ -222,7 +222,7 @@ public class ProxyHostedServiceTests : IAsyncDisposable
         var entry = TrafficEntryBuilder.Get().Build();
         _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         await _store.DidNotReceive().SaveTrafficEntryAsync(
             Arg.Any<TrafficEntry>(), Arg.Any<CancellationToken>());
