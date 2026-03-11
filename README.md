@@ -264,7 +264,7 @@ src/
 ├── HttpProxyMcp.Storage/    SQLite persistence (Dapper)
 └── HttpProxyMcp.McpServer/  MCP stdio server, 13 tools, hosted service
 tests/
-└── HttpProxyMcp.Tests/      101 tests (xUnit + NSubstitute + FluentAssertions)
+└── HttpProxyMcp.Tests/      tests (xUnit + NSubstitute + FluentAssertions)
 ```
 
 ## Configuration
