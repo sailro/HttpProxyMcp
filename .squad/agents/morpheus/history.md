@@ -21,6 +21,10 @@
 - **Minor note:** Custom instruction claims "101 tests across 9 files"; actual test file count is 8 (excluding 2 helper files). No functional impact.
 - **Recommendation:** Document RootCertificateManager's default PFX path in README for clarity.
 
+### Team Cross-Updates (2026-03-11)
+- **Switch's test coverage audit:** Identified gaps in ProxyHostedService, SystemProxyManager, RootCertificateManager, and real ProxyEngine tests. Cleaned up 3 stale test comments. Priority: ProxyHostedService tests (easy wins, high value).
+- **Mouse's storage verification:** Confirmed all 13 MCP tools properly annotated, ProxyHostedService event wiring correct, VACUUM behavior implemented, StartProxy.setSystemProxy parameter exposed. No changes needed.
+
 ### Architecture Decisions (2025-07-11)
 - .NET 10 SDK (10.0.200) confirmed available; `net10.0` TFM works natively with `dotnet new`
 - .NET 10 uses `.slnx` format by default (not `.sln`)
