@@ -57,7 +57,7 @@ public class IntegrationTests
         engine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(engine, capturedEntry);
 
         // Store the captured entry
-        var storedId = await store.SaveTrafficEntryAsync(eventEntry!);
+        var storedId = await store.SaveTrafficEntryAsync(eventEntry!, TestContext.Current.CancellationToken);
 
         // Query via MCP tool
         var listResult = await TrafficTools.ListTraffic(store, hostname: "api.example.com");

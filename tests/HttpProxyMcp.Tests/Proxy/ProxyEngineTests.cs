@@ -29,7 +29,7 @@ public class ProxyEngineTests
 
         _engine.IsRunning.Should().BeFalse();
 
-        await _engine.StartAsync(new ProxyConfiguration());
+        await _engine.StartAsync(new ProxyConfiguration(), TestContext.Current.CancellationToken);
 
         _engine.IsRunning.Should().BeTrue();
     }
@@ -41,7 +41,7 @@ public class ProxyEngineTests
         _engine.When(e => e.StopAsync(Arg.Any<CancellationToken>()))
             .Do(_ => _engine.IsRunning.Returns(false));
 
-        await _engine.StopAsync();
+        await _engine.StopAsync(TestContext.Current.CancellationToken);
 
         _engine.IsRunning.Should().BeFalse();
     }
@@ -54,7 +54,7 @@ public class ProxyEngineTests
         _engine.When(e => e.StartAsync(config, Arg.Any<CancellationToken>()))
             .Do(_ => _engine.Configuration.Returns(config));
 
-        await _engine.StartAsync(config);
+        await _engine.StartAsync(config, TestContext.Current.CancellationToken);
 
         _engine.Configuration.Should().NotBeNull();
         _engine.Configuration.Port.Should().Be(9090);

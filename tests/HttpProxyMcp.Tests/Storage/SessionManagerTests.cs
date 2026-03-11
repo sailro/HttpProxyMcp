@@ -30,7 +30,7 @@ public class SessionManagerTests
         _sessions.CreateSessionAsync("test-session", Arg.Any<CancellationToken>())
             .Returns(expected);
 
-        var session = await _sessions.CreateSessionAsync("test-session");
+        var session = await _sessions.CreateSessionAsync("test-session", TestContext.Current.CancellationToken);
 
         session.Should().NotBeNull();
         session.Id.Should().NotBeEmpty();
@@ -53,7 +53,7 @@ public class SessionManagerTests
         _sessions.CreateSessionAsync("timed-session", Arg.Any<CancellationToken>())
             .Returns(expected);
 
-        var session = await _sessions.CreateSessionAsync("timed-session");
+        var session = await _sessions.CreateSessionAsync("timed-session", TestContext.Current.CancellationToken);
 
         session.CreatedAt.Should().BeCloseTo(now, TimeSpan.FromSeconds(5));
     }
@@ -76,7 +76,7 @@ public class SessionManagerTests
         _sessions.GetSessionAsync(id, Arg.Any<CancellationToken>())
             .Returns(expected);
 
-        var session = await _sessions.GetSessionAsync(id);
+        var session = await _sessions.GetSessionAsync(id, TestContext.Current.CancellationToken);
 
         session.Should().NotBeNull();
         session!.Id.Should().Be(id);
@@ -88,7 +88,7 @@ public class SessionManagerTests
         _sessions.GetSessionAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ProxySession?)null);
 
-        var result = await _sessions.GetSessionAsync(Guid.NewGuid());
+        var result = await _sessions.GetSessionAsync(Guid.NewGuid(), TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
     }
@@ -110,7 +110,7 @@ public class SessionManagerTests
         _sessions.ListSessionsAsync(Arg.Any<CancellationToken>())
             .Returns(sessions);
 
-        var result = await _sessions.ListSessionsAsync();
+        var result = await _sessions.ListSessionsAsync(TestContext.Current.CancellationToken);
 
         result.Should().HaveCount(3);
     }
@@ -121,7 +121,7 @@ public class SessionManagerTests
         _sessions.ListSessionsAsync(Arg.Any<CancellationToken>())
             .Returns([]);
 
-        var result = await _sessions.ListSessionsAsync();
+        var result = await _sessions.ListSessionsAsync(TestContext.Current.CancellationToken);
 
         result.Should().BeEmpty();
     }
@@ -137,7 +137,7 @@ public class SessionManagerTests
         _sessions.ListSessionsAsync(Arg.Any<CancellationToken>())
             .Returns(sessions);
 
-        var result = await _sessions.ListSessionsAsync();
+        var result = await _sessions.ListSessionsAsync(TestContext.Current.CancellationToken);
 
         result[0].EntryCount.Should().Be(42);
     }
@@ -151,7 +151,7 @@ public class SessionManagerTests
     {
         var id = Guid.NewGuid();
 
-        await _sessions.CloseSessionAsync(id);
+        await _sessions.CloseSessionAsync(id, TestContext.Current.CancellationToken);
 
         await _sessions.Received(1).CloseSessionAsync(id, Arg.Any<CancellationToken>());
     }
@@ -179,7 +179,7 @@ public class SessionManagerTests
     {
         var id = Guid.NewGuid();
 
-        await _sessions.DeleteSessionAsync(id);
+        await _sessions.DeleteSessionAsync(id, TestContext.Current.CancellationToken);
 
         await _sessions.Received(1).DeleteSessionAsync(id, Arg.Any<CancellationToken>());
     }
@@ -195,7 +195,7 @@ public class SessionManagerTests
 
         _sessions.ActiveSessionId.Returns(id);
 
-        await _sessions.SetActiveSessionAsync(id);
+        await _sessions.SetActiveSessionAsync(id, TestContext.Current.CancellationToken);
 
         _sessions.ActiveSessionId.Should().Be(id);
     }

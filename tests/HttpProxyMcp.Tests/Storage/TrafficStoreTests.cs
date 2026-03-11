@@ -27,7 +27,7 @@ public class TrafficStoreTests
         _store.SaveTrafficEntryAsync(Arg.Any<TrafficEntry>(), Arg.Any<CancellationToken>())
             .Returns(1L);
 
-        var id = await _store.SaveTrafficEntryAsync(entry);
+        var id = await _store.SaveTrafficEntryAsync(entry, TestContext.Current.CancellationToken);
 
         id.Should().BePositive();
     }
@@ -43,7 +43,7 @@ public class TrafficStoreTests
         _store.GetTrafficEntryAsync(42, Arg.Any<CancellationToken>())
             .Returns(entry);
 
-        var result = await _store.GetTrafficEntryAsync(42);
+        var result = await _store.GetTrafficEntryAsync(42, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result!.Id.Should().Be(42);
@@ -58,7 +58,7 @@ public class TrafficStoreTests
         _store.GetTrafficEntryAsync(99999, Arg.Any<CancellationToken>())
             .Returns((TrafficEntry?)null);
 
-        var result = await _store.GetTrafficEntryAsync(99999);
+        var result = await _store.GetTrafficEntryAsync(99999, TestContext.Current.CancellationToken);
         result.Should().BeNull();
     }
 
@@ -80,8 +80,8 @@ public class TrafficStoreTests
         _store.GetTrafficEntryAsync(1, Arg.Any<CancellationToken>())
             .Returns(entry);
 
-        await _store.SaveTrafficEntryAsync(entry);
-        var result = await _store.GetTrafficEntryAsync(1);
+        await _store.SaveTrafficEntryAsync(entry, TestContext.Current.CancellationToken);
+        var result = await _store.GetTrafficEntryAsync(1, TestContext.Current.CancellationToken);
 
         result!.Request.Headers.Should().ContainKey("Authorization");
         result.Request.Headers["Authorization"].Should().Contain("Bearer token123");
@@ -99,7 +99,7 @@ public class TrafficStoreTests
         _store.GetTrafficEntryAsync(1, Arg.Any<CancellationToken>())
             .Returns(entry);
 
-        var result = await _store.GetTrafficEntryAsync(1);
+        var result = await _store.GetTrafficEntryAsync(1, TestContext.Current.CancellationToken);
 
         result!.Request.Body.Should().NotBeNull();
         System.Text.Encoding.UTF8.GetString(result.Request.Body!).Should().Contain("test");
@@ -122,7 +122,7 @@ public class TrafficStoreTests
         _store.GetTrafficEntryAsync(1, Arg.Any<CancellationToken>())
             .Returns(entry);
 
-        var result = await _store.GetTrafficEntryAsync(1);
+        var result = await _store.GetTrafficEntryAsync(1, TestContext.Current.CancellationToken);
 
         result!.StartedAt.Should().BeCloseTo(startedAt, TimeSpan.FromSeconds(1));
         result.CompletedAt.Should().NotBeNull();
@@ -149,7 +149,7 @@ public class TrafficStoreTests
             .Returns(matchingEntries);
 
         var filter = new TrafficFilter { Hostname = "api.example.com" };
-        var results = await _store.QueryTrafficAsync(filter);
+        var results = await _store.QueryTrafficAsync(filter, TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(2);
         results.Should().AllSatisfy(e => e.Request.Hostname.Should().Be("api.example.com"));
@@ -169,7 +169,7 @@ public class TrafficStoreTests
             .Returns(postEntries);
 
         var filter = new TrafficFilter { Method = "POST" };
-        var results = await _store.QueryTrafficAsync(filter);
+        var results = await _store.QueryTrafficAsync(filter, TestContext.Current.CancellationToken);
 
         results.Should().AllSatisfy(e => e.Request.Method.Should().Be("POST"));
     }
@@ -188,7 +188,7 @@ public class TrafficStoreTests
             .Returns(notFoundEntries);
 
         var filter = new TrafficFilter { StatusCode = 404 };
-        var results = await _store.QueryTrafficAsync(filter);
+        var results = await _store.QueryTrafficAsync(filter, TestContext.Current.CancellationToken);
 
         results.Should().AllSatisfy(e => e.Response!.StatusCode.Should().Be(404));
     }
@@ -208,7 +208,7 @@ public class TrafficStoreTests
             .Returns(serverErrors);
 
         var filter = new TrafficFilter { MinStatusCode = 500, MaxStatusCode = 599 };
-        var results = await _store.QueryTrafficAsync(filter);
+        var results = await _store.QueryTrafficAsync(filter, TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(2);
         results.Should().AllSatisfy(e =>
@@ -230,7 +230,7 @@ public class TrafficStoreTests
             .Returns(apiEntries);
 
         var filter = new TrafficFilter { UrlPattern = "/api/" };
-        var results = await _store.QueryTrafficAsync(filter);
+        var results = await _store.QueryTrafficAsync(filter, TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(2);
         results.Should().AllSatisfy(e => e.Request.Url.Should().Contain("/api/"));
@@ -259,7 +259,7 @@ public class TrafficStoreTests
             After = now.AddMinutes(-10),
             Before = now
         };
-        var results = await _store.QueryTrafficAsync(filter);
+        var results = await _store.QueryTrafficAsync(filter, TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(1);
     }
@@ -280,7 +280,7 @@ public class TrafficStoreTests
             .Returns(recentEntries);
 
         var filter = new TrafficFilter { After = cutoff };
-        var results = await _store.QueryTrafficAsync(filter);
+        var results = await _store.QueryTrafficAsync(filter, TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(2);
     }
@@ -299,7 +299,7 @@ public class TrafficStoreTests
         _store.SearchBodiesAsync("not_found", null, 50, Arg.Any<CancellationToken>())
             .Returns([matchingEntry]);
 
-        var results = await _store.SearchBodiesAsync("not_found");
+        var results = await _store.SearchBodiesAsync("not_found", cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(1);
     }
@@ -310,7 +310,7 @@ public class TrafficStoreTests
         _store.SearchBodiesAsync("nonexistent_text_xyz", null, 50, Arg.Any<CancellationToken>())
             .Returns([]);
 
-        var results = await _store.SearchBodiesAsync("nonexistent_text_xyz");
+        var results = await _store.SearchBodiesAsync("nonexistent_text_xyz", cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().BeEmpty();
     }
@@ -327,7 +327,7 @@ public class TrafficStoreTests
         _store.SearchBodiesAsync("match", sessionId, 50, Arg.Any<CancellationToken>())
             .Returns([matchingEntry]);
 
-        var results = await _store.SearchBodiesAsync("match", sessionId);
+        var results = await _store.SearchBodiesAsync("match", sessionId, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(1);
         results[0].SessionId.Should().Be(sessionId);
@@ -353,8 +353,8 @@ public class TrafficStoreTests
             Arg.Any<CancellationToken>())
             .Returns(page2);
 
-        var firstPage = await _store.QueryTrafficAsync(new TrafficFilter { Offset = 0, Limit = 5 });
-        var secondPage = await _store.QueryTrafficAsync(new TrafficFilter { Offset = 5, Limit = 5 });
+        var firstPage = await _store.QueryTrafficAsync(new TrafficFilter { Offset = 0, Limit = 5 }, TestContext.Current.CancellationToken);
+        var secondPage = await _store.QueryTrafficAsync(new TrafficFilter { Offset = 5, Limit = 5 }, TestContext.Current.CancellationToken);
 
         firstPage.Should().HaveCount(5);
         secondPage.Should().HaveCount(5);
@@ -366,7 +366,7 @@ public class TrafficStoreTests
         _store.CountTrafficAsync(Arg.Any<TrafficFilter>(), Arg.Any<CancellationToken>())
             .Returns(42);
 
-        var count = await _store.CountTrafficAsync(new TrafficFilter());
+        var count = await _store.CountTrafficAsync(new TrafficFilter(), TestContext.Current.CancellationToken);
 
         count.Should().Be(42);
     }
@@ -380,7 +380,7 @@ public class TrafficStoreTests
             .Returns(15);
 
         var filter = new TrafficFilter { Hostname = "api.example.com" };
-        var count = await _store.CountTrafficAsync(filter);
+        var count = await _store.CountTrafficAsync(filter, TestContext.Current.CancellationToken);
 
         count.Should().Be(15);
     }
@@ -395,7 +395,7 @@ public class TrafficStoreTests
         _store.QueryTrafficAsync(Arg.Any<TrafficFilter>(), Arg.Any<CancellationToken>())
             .Returns([]);
 
-        var results = await _store.QueryTrafficAsync(new TrafficFilter());
+        var results = await _store.QueryTrafficAsync(new TrafficFilter(), TestContext.Current.CancellationToken);
 
         results.Should().BeEmpty();
     }
@@ -406,7 +406,7 @@ public class TrafficStoreTests
         _store.CountTrafficAsync(Arg.Any<TrafficFilter>(), Arg.Any<CancellationToken>())
             .Returns(0);
 
-        var count = await _store.CountTrafficAsync(new TrafficFilter());
+        var count = await _store.CountTrafficAsync(new TrafficFilter(), TestContext.Current.CancellationToken);
 
         count.Should().Be(0);
     }
@@ -417,7 +417,7 @@ public class TrafficStoreTests
         _store.GetStatisticsAsync(null, Arg.Any<CancellationToken>())
             .Returns(new TrafficStatistics());
 
-        var stats = await _store.GetStatisticsAsync();
+        var stats = await _store.GetStatisticsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         stats.TotalRequests.Should().Be(0);
         stats.RequestsByMethod.Should().BeEmpty();
@@ -432,7 +432,7 @@ public class TrafficStoreTests
         _store.SearchBodiesAsync(Arg.Any<string>(), null, 50, Arg.Any<CancellationToken>())
             .Returns([]);
 
-        var results = await _store.SearchBodiesAsync("anything");
+        var results = await _store.SearchBodiesAsync("anything", cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().BeEmpty();
     }
@@ -452,8 +452,8 @@ public class TrafficStoreTests
         _store.GetTrafficEntryAsync(1, Arg.Any<CancellationToken>())
             .Returns(largeEntry);
 
-        await _store.SaveTrafficEntryAsync(largeEntry);
-        var result = await _store.GetTrafficEntryAsync(1);
+        await _store.SaveTrafficEntryAsync(largeEntry, TestContext.Current.CancellationToken);
+        var result = await _store.GetTrafficEntryAsync(1, TestContext.Current.CancellationToken);
 
         result!.Request.Body.Should().HaveCount(1_000_000);
         result.Response!.Body.Should().HaveCount(1_000_000);
@@ -497,7 +497,7 @@ public class TrafficStoreTests
         _store.GetStatisticsAsync(null, Arg.Any<CancellationToken>())
             .Returns(stats);
 
-        var result = await _store.GetStatisticsAsync();
+        var result = await _store.GetStatisticsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         result.TotalRequests.Should().Be(100);
         result.RequestsByMethod.Should().HaveCount(3);
@@ -520,7 +520,7 @@ public class TrafficStoreTests
         _store.GetStatisticsAsync(sessionId, Arg.Any<CancellationToken>())
             .Returns(sessionStats);
 
-        var result = await _store.GetStatisticsAsync(sessionId);
+        var result = await _store.GetStatisticsAsync(sessionId, TestContext.Current.CancellationToken);
 
         result.TotalRequests.Should().Be(25);
     }
@@ -532,7 +532,7 @@ public class TrafficStoreTests
     [Fact]
     public async Task ClearTraffic_ClearsAllEntries()
     {
-        await _store.ClearTrafficAsync();
+        await _store.ClearTrafficAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         await _store.Received(1).ClearTrafficAsync(null, Arg.Any<CancellationToken>());
     }
@@ -542,7 +542,7 @@ public class TrafficStoreTests
     {
         var sessionId = Guid.NewGuid();
 
-        await _store.ClearTrafficAsync(sessionId);
+        await _store.ClearTrafficAsync(sessionId, TestContext.Current.CancellationToken);
 
         await _store.Received(1).ClearTrafficAsync(sessionId, Arg.Any<CancellationToken>());
     }
