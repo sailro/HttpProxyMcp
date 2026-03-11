@@ -20,7 +20,16 @@ public sealed class ProxyControlTools
             return $"Proxy is already running on port {engine.Configuration.Port}.";
 
         var config = new ProxyConfiguration { Port = port, EnableSsl = enableSsl, SetSystemProxy = setSystemProxy };
-        await engine.StartAsync(config);
+
+        try
+        {
+            await engine.StartAsync(config);
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to start proxy on port {port}: {ex.Message}";
+        }
+
         var sysProxyMsg = setSystemProxy ? " System proxy configured." : "";
         return $"Proxy started on port {port} (SSL interception: {enableSsl}).{sysProxyMsg}";
     }

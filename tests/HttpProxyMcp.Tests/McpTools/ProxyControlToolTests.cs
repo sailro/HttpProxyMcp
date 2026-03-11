@@ -59,6 +59,19 @@ public class ProxyControlToolTests
     }
 
     [Fact]
+    public async Task StartProxy_WhenEngineThrows_ReturnsFriendlyErrorMessage()
+    {
+        _engine.IsRunning.Returns(false);
+        _engine.StartAsync(Arg.Any<ProxyConfiguration>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("Could not bind to port 8080: Address already in use")));
+
+        var result = await ProxyControlTools.StartProxy(_engine, port: 8080);
+
+        result.Should().Contain("Failed to start proxy on port 8080");
+        result.Should().Contain("Address already in use");
+    }
+
+    [Fact]
     public async Task StartProxy_WhenAlreadyRunning_ReturnsAlreadyRunningMessage()
     {
         _engine.IsRunning.Returns(true);

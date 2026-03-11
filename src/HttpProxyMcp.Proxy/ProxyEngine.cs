@@ -58,7 +58,20 @@ public sealed class ProxyEngine(
         }
 
         _proxyServer.AddEndPoint(_endPoint);
-        _proxyServer.Start();
+
+        try
+        {
+            _proxyServer.Start();
+        }
+        catch (System.Net.Sockets.SocketException ex)
+        {
+            // Port is likely already in use — clean up the partially-created proxy server
+            _proxyServer.Dispose();
+            _proxyServer = null;
+            _endPoint = null;
+            throw new InvalidOperationException(
+                $"Could not bind to port {configuration.Port}: {ex.Message}", ex);
+        }
 
         IsRunning = true;
         logger.LogInformation(
