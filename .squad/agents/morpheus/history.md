@@ -21,9 +21,29 @@
 - **Minor note:** Custom instruction claims "101 tests across 9 files"; actual test file count is 8 (excluding 2 helper files). No functional impact.
 - **Recommendation:** Document RootCertificateManager's default PFX path in README for clarity.
 
-### Team Cross-Updates (2026-03-11)
-- **Switch's test coverage audit:** Identified gaps in ProxyHostedService, SystemProxyManager, RootCertificateManager, and real ProxyEngine tests. Cleaned up 3 stale test comments. Priority: ProxyHostedService tests (easy wins, high value).
-- **Mouse's storage verification:** Confirmed all 13 MCP tools properly annotated, ProxyHostedService event wiring correct, VACUUM behavior implemented, StartProxy.setSystemProxy parameter exposed. No changes needed.
+### TLS Fingerprinting & Architectural Extensibility (2026-03-12)
+
+**Research Scope:** Analyzed TLS fingerprinting mechanisms and evaluated 5 integration approaches for potential fingerprint mitigation.
+
+**Key Architectural Insights:**
+- **Proxy-in-Proxy Pattern:** Cleanest solution IF fingerprinting becomes requirement — chain through external TLS-spoofing proxy (mitmproxy, Fiddler)
+- **IOutboundConnectionFactory Abstraction:** Proposed future extension point:
+  - DirectConnectionFactory (default) — standard SslStream
+  - ProxyChainFactory — routes through external proxy
+  - TlsClientFactory (future) — uses TlsClient.NET if integrated
+- **No Core Integration:** Tank's evaluation confirmed TlsClient.NET incompatible with Titanium.Web.Proxy integration; keeping fingerprinting mitigation out of core is correct architectural decision
+- **Phased Implementation Plan:**
+  - Phase 0 (Now): Accept TLS detectability; document if needed
+  - Phase 1 (If required): Introduce IOutboundConnectionFactory abstraction in ProxyEngine (~100 lines)
+  - Phase 2 (Future): Implement external proxy factories without further core changes
+
+**Why No Core Integration:**
+- Titanium.Web.Proxy tightly coupled to .NET SslStream; no interception point for TlsClient.NET
+- P/Invoke overhead and platform-specific code violate proxy's clean architecture
+- Proxy-in-proxy solution is simpler, more maintainable, and leverages existing tools
+- Architecture extensible for future without current code changes
+
+**Non-blocking:** TLS detectability is acceptable for dev-tool use case. No user has raised this as blocker. Extensible architecture ready if requirement emerges.
 
 ### Architecture Decisions (2025-07-11)
 - .NET 10 SDK (10.0.200) confirmed available; `net10.0` TFM works natively with `dotnet new`

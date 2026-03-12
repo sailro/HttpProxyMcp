@@ -40,3 +40,18 @@ _(Session learnings will be appended here)
 - `Microsoft.Extensions.Logging.Abstractions` (for `ILogger<T>`)
 
 **McpServer wiring:** Updated `ServiceRegistration.cs` to call `HttpProxyMcp.Proxy.ServiceCollectionExtensions.AddProxyServices()` explicitly.
+
+### TLS Fingerprinting Analysis (2026-03-12)
+
+**Research Findings:**
+- **JA3/JA4 Fingerprinting:** TLS handshake hashing exposes consistent proxy fingerprints via .NET SslStream
+- **TlsClient.NET Evaluation:** Golang library with CGo bindings; powerful fingerprint control but architecturally incompatible with Titanium.Web.Proxy (not designed as proxy middleware, incompatible with internal SslStream management)
+- **.NET SslStream Limitations:** No public API to customize cipher suites, curves, extensions, extension ordering, signature algorithms, handshake versions, or ClientHello parameters
+- **5 Alternative Mitigation Approaches:** Proxy-in-proxy (recommended), HttpClient forwarding (partial), fork Titanium (unsustainable), reflection injection (fragile), selective forwarding (hybrid)
+- **Recommendation:** Accept TLS detectability — proxy is dev tool, not bot; integration overhead far exceeds benefit
+
+**Architecture Implications:**
+- **Future Extensibility:** If fingerprinting becomes requirement, introduce `IOutboundConnectionFactory` abstraction in ProxyEngine
+- **Phased Approach:** Phase 0 (accept now), Phase 1 (factory abstraction), Phase 2 (proxy-in-proxy or external factories)
+- **Key Insight:** Both core and Titanium.Web.Proxy tightly coupled to SslStream; fingerprinting hiding better solved as external proxy wrapper than core integration
+- **Non-blocking:** No changes needed now; architecture is extensible for future if required

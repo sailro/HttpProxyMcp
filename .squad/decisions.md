@@ -203,6 +203,41 @@
 - tests/HttpProxyMcp.Tests/SystemProxyManagerTests.cs (+7)
 - tests/HttpProxyMcp.Tests/VacuumTests.cs (+2, new file)
 
+### 10. TLS Fingerprinting Analysis & Mitigation Strategies (Tank & Morpheus — 2026-03-12)
+
+**Status:** ℹ️ Documented (Non-blocking research)
+
+**Summary:** Comprehensive analysis of TLS fingerprinting mechanisms (JA3/JA4), evaluation of TlsClient.NET library for fingerprint mitigation, and architectural assessment of 5 integration approaches. Both agents concluded: accept TLS detectability; proxy is dev tool, not bot; don't integrate fingerprinting into core; if needed in future, implement as proxy-in-proxy wrapper.
+
+**Tank's Findings:**
+- **JA3/JA4 Mechanics:** TLS handshake hashing (cipher suites, curves, extensions, versions, signatures); proxy exposes consistent fingerprint via .NET SslStream
+- **TlsClient.NET Evaluation:** Golang library with CGo bindings; powerful fingerprint control but incompatible with Titanium.Web.Proxy (not designed as proxy middleware)
+- **.NET SslStream Limitations:** No API to customize cipher suites, curves, extensions, extension ordering, signature algorithms, handshake versions, or ClientHello params
+- **Recommendation:** Accept detectability; overhead of TlsClient.NET integration far exceeds benefit for dev-tool use case
+- **5 Alternatives Documented:** Proxy-in-proxy, HttpClient forwarding, fork Titanium, reflection injection, selective forwarding
+
+**Morpheus's Assessment:**
+- **Integration Options:** Evaluated all 5 with tradeoffs; proxy-in-proxy is cleanest IF mitigation needed
+- **Proposed Abstraction:** `IOutboundConnectionFactory` interface with DirectConnectionFactory (default), ProxyChainFactory, TlsClientFactory (future)
+- **Phased Approach:** Phase 0 (accept now), Phase 1 (abstraction), Phase 2 (external factories)
+- **Future Extensibility:** No core changes required; architecture ready for fingerprinting if requirement emerges
+- **Recommendation:** Don't integrate into core; implement as proxy-in-proxy wrapper if needed
+
+**Key Decisions:**
+1. **TLS Detectability:** Accepted as inherent to standard .NET SslStream usage
+2. **No Core Integration:** Fingerprinting mitigation not coupled to ProxyEngine
+3. **Architecture Extensibility:** IOutboundConnectionFactory provides clean path forward
+4. **Default Behavior:** Unchanged; all connections use standard SslStream
+
+**Rationale:**
+- Proxy is development/debugging tool, not malicious client or bot
+- Fingerprinting hiding adds significant complexity (P/Invoke, platform-specific code, maintenance burden)
+- Titanium.Web.Proxy incompatible with TlsClient.NET integration
+- Proxy-in-proxy is cleaner solution if fingerprint hiding becomes critical
+- Current architecture extensible without core changes
+
+**Non-blocking Status:** This is non-blocking research. No user has reported TLS detectability as issue. Document limitation in README if needed in future.
+
 ---
 
 ## Governance
