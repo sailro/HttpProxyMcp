@@ -1,4 +1,5 @@
 # HttpProxyMcp
+[![Build status](https://github.com/sailro/HttpProxyMcp/workflows/CI/badge.svg)](https://github.com/sailro/HttpProxyMcp/actions?query=workflow%3ACI)
 
 An HTTP/HTTPS MITM proxy with full traffic capture, exposed as an **MCP server** so LLMs can inspect, filter, and analyze network traffic through natural language.
 
