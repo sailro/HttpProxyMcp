@@ -33,6 +33,12 @@ public sealed class TrafficEntryBuilder
     private DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private DateTimeOffset? _completedAt;
     private TimeSpan _duration = TimeSpan.FromMilliseconds(150);
+    private string? _requestHttpVersion;
+    private string? _responseHttpVersion;
+    private string? _serverIpAddress;
+    private double? _timingSendMs;
+    private double? _timingWaitMs;
+    private double? _timingReceiveMs;
 
     public TrafficEntryBuilder WithId(long id) { _id = id; return this; }
     public TrafficEntryBuilder WithSessionId(Guid sessionId) { _sessionId = sessionId; return this; }
@@ -94,6 +100,27 @@ public sealed class TrafficEntryBuilder
     public TrafficEntryBuilder WithStartedAt(DateTimeOffset startedAt) { _startedAt = startedAt; return this; }
     public TrafficEntryBuilder WithDuration(TimeSpan duration) { _duration = duration; return this; }
 
+    public TrafficEntryBuilder WithHttpVersion(string? requestVersion, string? responseVersion)
+    {
+        _requestHttpVersion = requestVersion;
+        _responseHttpVersion = responseVersion;
+        return this;
+    }
+
+    public TrafficEntryBuilder WithServerIpAddress(string? ip)
+    {
+        _serverIpAddress = ip;
+        return this;
+    }
+
+    public TrafficEntryBuilder WithTimings(double? sendMs, double? waitMs, double? receiveMs)
+    {
+        _timingSendMs = sendMs;
+        _timingWaitMs = waitMs;
+        _timingReceiveMs = receiveMs;
+        return this;
+    }
+
     public TrafficEntryBuilder WithCompletedAt(DateTimeOffset? completedAt)
     {
         _completedAt = completedAt;
@@ -138,6 +165,10 @@ public sealed class TrafficEntryBuilder
             SessionId = _sessionId,
             StartedAt = _startedAt,
             CompletedAt = completedAt,
+            ServerIpAddress = _serverIpAddress,
+            TimingSendMs = _timingSendMs,
+            TimingWaitMs = _timingWaitMs,
+            TimingReceiveMs = _timingReceiveMs,
             Request = new CapturedRequest
             {
                 Method = _method,
@@ -150,7 +181,8 @@ public sealed class TrafficEntryBuilder
                 Headers = _requestHeaders,
                 Body = _requestBody,
                 ContentType = _requestContentType,
-                ContentLength = _requestBody?.Length
+                ContentLength = _requestBody?.Length,
+                HttpVersion = _requestHttpVersion
             },
             Response = new CapturedResponse
             {
@@ -159,7 +191,8 @@ public sealed class TrafficEntryBuilder
                 Headers = _responseHeaders,
                 Body = _responseBody,
                 ContentType = _responseContentType,
-                ContentLength = _responseBody?.Length
+                ContentLength = _responseBody?.Length,
+                HttpVersion = _responseHttpVersion
             }
         };
     }

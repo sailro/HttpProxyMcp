@@ -10,4 +10,8 @@ public sealed class TrafficEntry
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
     public TimeSpan? Duration => CompletedAt.HasValue ? CompletedAt.Value - StartedAt : null;
+    public string? ServerIpAddress { get; set; }
+    public double? TimingSendMs { get; set; }
+    public double? TimingWaitMs { get; set; }
+    public double? TimingReceiveMs { get; set; }
 }

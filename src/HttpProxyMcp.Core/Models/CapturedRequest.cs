@@ -13,4 +13,5 @@ public sealed class CapturedRequest
     public byte[]? Body { get; set; }
     public string? ContentType { get; set; }
     public long? ContentLength { get; set; }
+    public string? HttpVersion { get; set; }
 }

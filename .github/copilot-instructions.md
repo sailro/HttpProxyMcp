@@ -20,7 +20,7 @@ CI runs `dotnet build --configuration Release && dotnet test --configuration Rel
 MCP Client (Copilot CLI, VS Code, etc.)
     │ stdio / MCP Protocol
     ▼
-McpServer  ── Worker Service + 13 MCP tools (auto-discovered via [McpServerToolType])
+McpServer  ── Worker Service + 14 MCP tools (auto-discovered via [McpServerToolType])
     │
     ├── ProxyHostedService (BackgroundService)
     │     └── Wires ProxyEngine.TrafficCaptured → ITrafficStore.SaveTrafficEntryAsync
@@ -46,7 +46,7 @@ McpServer  ── Worker Service + 13 MCP tools (auto-discovered via [McpServerT
 | `HttpProxyMcp.Core` | Domain models (`TrafficEntry`, `ProxySession`, `CapturedRequest/Response`, `ProxyConfiguration`, `TrafficFilter`, `TrafficStatistics`) and interfaces (`IProxyEngine`, `ISessionManager`, `ITrafficStore`) |
 | `HttpProxyMcp.Proxy` | MITM proxy engine using Titanium.Web.Proxy, root CA cert management, Windows system proxy auto-config. Has `AllowUnsafeBlocks=true` for P/Invoke. |
 | `HttpProxyMcp.Storage` | SQLite persistence with Dapper. Uses `MatchNamesWithUnderscores` for snake_case→PascalCase mapping. Internal DTOs (`TrafficRow`, `SessionRow`) flatten nested objects for DB mapping. Headers stored as JSON in TEXT columns. |
-| `HttpProxyMcp.McpServer` | Entry point. Worker service hosting MCP server over stdio. Tools in `Tools/` folder are static async methods with DI via parameters, auto-discovered by `WithToolsFromAssembly()`. |
+| `HttpProxyMcp.McpServer` | Entry point. Worker service hosting MCP server over stdio. Tools in `Tools/` folder are static async methods with DI via parameters, auto-discovered by `WithToolsFromAssembly()`. Includes `ExportTools.cs` (HAR 1.2 export) and `HarConverter.cs` (HAR JSON generation). |
 | `HttpProxyMcp.Tests` | xUnit + NSubstitute + FluentAssertions. Organized by layer: `Storage/`, `Proxy/`, `McpTools/`, `Helpers/`. |
 
 ## Code Conventions
@@ -76,6 +76,7 @@ McpServer  ── Worker Service + 13 MCP tools (auto-discovered via [McpServerT
 - Bodies stored as BLOBs (max 10MB default via `ProxyConfiguration.MaxBodyCaptureBytes`)
 - Body search uses `CAST(request_body AS TEXT) LIKE`
 - `ClearTrafficAsync` includes `VACUUM` to reclaim disk space
+- **HAR 1.2 fields:** `request_http_version`, `response_http_version`, `server_ip_address`, `timing_send_ms`, `timing_wait_ms`, `timing_receive_ms` — auto-migrated to existing databases via `ALTER TABLE ADD COLUMN` in `InitializeAsync()`
 
 ## Windows System Proxy
 

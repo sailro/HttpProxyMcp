@@ -27,4 +27,10 @@ internal sealed class TrafficRow
     public byte[]? ResponseBody { get; set; }
     public string? ResponseContentType { get; set; }
     public long? ResponseContentLength { get; set; }
+    public string? RequestHttpVersion { get; set; }
+    public string? ResponseHttpVersion { get; set; }
+    public string? ServerIpAddress { get; set; }
+    public double? TimingSendMs { get; set; }
+    public double? TimingWaitMs { get; set; }
+    public double? TimingReceiveMs { get; set; }
 }

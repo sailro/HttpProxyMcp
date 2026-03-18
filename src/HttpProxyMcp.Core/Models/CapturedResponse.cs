@@ -8,4 +8,5 @@ public sealed class CapturedResponse
     public byte[]? Body { get; set; }
     public string? ContentType { get; set; }
     public long? ContentLength { get; set; }
+    public string? HttpVersion { get; set; }
 }

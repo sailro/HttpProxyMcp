@@ -52,6 +52,12 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
                 response_body BLOB,
                 response_content_type TEXT,
                 response_content_length INTEGER,
+                request_http_version TEXT,
+                response_http_version TEXT,
+                server_ip_address TEXT,
+                timing_send_ms REAL,
+                timing_wait_ms REAL,
+                timing_receive_ms REAL,
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );
 
@@ -62,6 +68,23 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
             CREATE INDEX IF NOT EXISTS idx_traffic_method ON traffic_entries(method);
             CREATE INDEX IF NOT EXISTS idx_traffic_started_at ON traffic_entries(started_at);
             """);
+
+        // Auto-migrate older databases that lack the HAR 1.2 columns
+        var existingColumns = await conn.QueryAsync<dynamic>("PRAGMA table_info(traffic_entries)");
+        var columnNames = existingColumns.Select(c => (string)c.name).ToHashSet();
+
+        if (!columnNames.Contains("request_http_version"))
+            await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN request_http_version TEXT");
+        if (!columnNames.Contains("response_http_version"))
+            await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN response_http_version TEXT");
+        if (!columnNames.Contains("server_ip_address"))
+            await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN server_ip_address TEXT");
+        if (!columnNames.Contains("timing_send_ms"))
+            await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN timing_send_ms REAL");
+        if (!columnNames.Contains("timing_wait_ms"))
+            await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN timing_wait_ms REAL");
+        if (!columnNames.Contains("timing_receive_ms"))
+            await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN timing_receive_ms REAL");
 
         // Enable WAL mode and foreign keys for performance and integrity
         await conn.ExecuteAsync("PRAGMA journal_mode=WAL;");
@@ -79,13 +102,17 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
                 method, url, hostname, path, query_string, scheme, port,
                 request_headers, request_body, request_content_type, request_content_length,
                 status_code, reason_phrase,
-                response_headers, response_body, response_content_type, response_content_length
+                response_headers, response_body, response_content_type, response_content_length,
+                request_http_version, response_http_version,
+                server_ip_address, timing_send_ms, timing_wait_ms, timing_receive_ms
             ) VALUES (
                 @SessionId, @StartedAt, @CompletedAt, @DurationMs,
                 @Method, @Url, @Hostname, @Path, @QueryString, @Scheme, @Port,
                 @RequestHeaders, @RequestBody, @RequestContentType, @RequestContentLength,
                 @StatusCode, @ReasonPhrase,
-                @ResponseHeaders, @ResponseBody, @ResponseContentType, @ResponseContentLength
+                @ResponseHeaders, @ResponseBody, @ResponseContentType, @ResponseContentLength,
+                @RequestHttpVersion, @ResponseHttpVersion,
+                @ServerIpAddress, @TimingSendMs, @TimingWaitMs, @TimingReceiveMs
             );
             SELECT last_insert_rowid();
             """, new
@@ -105,12 +132,18 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
             RequestBody = entry.Request.Body,
             RequestContentType = entry.Request.ContentType,
             RequestContentLength = entry.Request.ContentLength,
+            RequestHttpVersion = entry.Request.HttpVersion,
             entry.Response?.StatusCode,
             entry.Response?.ReasonPhrase,
             ResponseHeaders = entry.Response is not null ? SerializeHeaders(entry.Response.Headers) : null,
             ResponseBody = entry.Response?.Body,
             ResponseContentType = entry.Response?.ContentType,
             ResponseContentLength = entry.Response?.ContentLength,
+            ResponseHttpVersion = entry.Response?.HttpVersion,
+            entry.ServerIpAddress,
+            entry.TimingSendMs,
+            entry.TimingWaitMs,
+            entry.TimingReceiveMs,
         });
 
         entry.Id = id;
@@ -141,7 +174,9 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
                    method, url, hostname, path, query_string, scheme, port,
                    request_headers, request_content_type, request_content_length,
                    status_code, reason_phrase,
-                   response_headers, response_content_type, response_content_length
+                   response_headers, response_content_type, response_content_length,
+                   request_http_version, response_http_version,
+                   server_ip_address, timing_send_ms, timing_wait_ms, timing_receive_ms
             FROM traffic_entries
             {where}
             ORDER BY started_at DESC
@@ -189,7 +224,9 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
                    method, url, hostname, path, query_string, scheme, port,
                    request_headers, request_content_type, request_content_length,
                    status_code, reason_phrase,
-                   response_headers, response_content_type, response_content_length
+                   response_headers, response_content_type, response_content_length,
+                   request_http_version, response_http_version,
+                   server_ip_address, timing_send_ms, timing_wait_ms, timing_receive_ms
             FROM traffic_entries
             WHERE (CAST(request_body AS TEXT) LIKE @Search
                    OR CAST(response_body AS TEXT) LIKE @Search)
@@ -368,6 +405,10 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
             SessionId = Guid.Parse(row.SessionId),
             StartedAt = DateTimeOffset.Parse(row.StartedAt),
             CompletedAt = row.CompletedAt is not null ? DateTimeOffset.Parse(row.CompletedAt) : null,
+            ServerIpAddress = row.ServerIpAddress,
+            TimingSendMs = row.TimingSendMs,
+            TimingWaitMs = row.TimingWaitMs,
+            TimingReceiveMs = row.TimingReceiveMs,
             Request = new CapturedRequest
             {
                 Method = row.Method,
@@ -380,6 +421,7 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
                 Headers = DeserializeHeaders(row.RequestHeaders),
                 ContentType = row.RequestContentType,
                 ContentLength = row.RequestContentLength,
+                HttpVersion = row.RequestHttpVersion,
                 Body = includeBodies ? row.RequestBody : null,
             }
         };
@@ -393,6 +435,7 @@ public sealed class SqliteTrafficStore(string connectionString) : ITrafficStore
                 Headers = DeserializeHeaders(row.ResponseHeaders),
                 ContentType = row.ResponseContentType,
                 ContentLength = row.ResponseContentLength,
+                HttpVersion = row.ResponseHttpVersion,
                 Body = includeBodies ? row.ResponseBody : null,
             };
         }

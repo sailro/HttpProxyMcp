@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
 using HttpProxyMcp.Core.Interfaces;
 using HttpProxyMcp.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -47,6 +49,7 @@ public sealed class ProxyEngine(
         // Wire up event handlers
         _proxyServer.BeforeRequest += OnBeforeRequest;
         _proxyServer.BeforeResponse += OnBeforeResponse;
+        _proxyServer.AfterResponse += OnAfterResponse;
         _proxyServer.ServerCertificateValidationCallback += OnServerCertificateValidation;
 
         // Create explicit proxy endpoint (clients must configure this as their proxy)
@@ -99,6 +102,7 @@ public sealed class ProxyEngine(
 
         proxyServer.BeforeRequest -= OnBeforeRequest;
         proxyServer.BeforeResponse -= OnBeforeResponse;
+        proxyServer.AfterResponse -= OnAfterResponse;
         proxyServer.ServerCertificateValidationCallback -= OnServerCertificateValidation;
 
         if (_endPoint is { } endPoint)
@@ -172,7 +176,7 @@ public sealed class ProxyEngine(
 
         var capturedResponse = CaptureResponse(e);
 
-        // Read response body
+        // Read response body (must be done here — body is streamed to client after this handler)
         if (e.HttpClient.Response.HasBody)
         {
             try
@@ -189,15 +193,29 @@ public sealed class ProxyEngine(
             }
         }
 
+        // Store response in context — TrafficEntry is built in AfterResponse
+        // where all TimeLine keys and the server connection are fully available.
+        capture.Response = capturedResponse;
+    }
+
+    private Task OnAfterResponse(object sender, SessionEventArgs e)
+    {
+        if (e.UserData is not TrafficCapture capture || capture.Response is null)
+            return Task.CompletedTask;
+
         var completedAt = DateTimeOffset.UtcNow;
 
         var entry = new TrafficEntry
         {
             Request = capture.Request,
-            Response = capturedResponse,
+            Response = capture.Response,
             StartedAt = capture.StartedAt,
-            CompletedAt = completedAt
+            CompletedAt = completedAt,
+            ServerIpAddress = GetServerIpAddress(e)
         };
+
+        // TimeLine now includes "Response Sent" — all phases available
+        ExtractTimings(e, entry);
 
         try
         {
@@ -207,6 +225,8 @@ public sealed class ProxyEngine(
         {
             logger.LogError(ex, "Error in TrafficCaptured handler for {Url}", capture.Request.Url);
         }
+
+        return Task.CompletedTask;
     }
 
     private Task OnBeforeTunnelConnectRequest(object sender, TunnelConnectSessionEventArgs e)
@@ -252,7 +272,8 @@ public sealed class ProxyEngine(
             Port = uri.Port,
             Headers = ConvertHeaders(request.Headers),
             ContentType = request.ContentType,
-            ContentLength = request.ContentLength
+            ContentLength = request.ContentLength,
+            HttpVersion = FormatHttpVersion(request.HttpVersion)
         };
     }
 
@@ -266,7 +287,8 @@ public sealed class ProxyEngine(
             ReasonPhrase = response.StatusDescription,
             Headers = ConvertHeaders(response.Headers),
             ContentType = response.ContentType,
-            ContentLength = response.ContentLength
+            ContentLength = response.ContentLength,
+            HttpVersion = FormatHttpVersion(response.HttpVersion)
         };
     }
 
@@ -294,6 +316,61 @@ public sealed class ProxyEngine(
         return result;
     }
 
+    private static string? FormatHttpVersion(Version? version)
+    {
+        return version is null ? null : $"HTTP/{version.Major}.{version.Minor}";
+    }
+
+    // Computes HAR-style timing phases from Titanium's TimeLine dictionary.
+    // Keys may be absent (e.g., connection reuse skips "Connection Ready"), so each phase is nullable.
+    private static void ExtractTimings(SessionEventArgs e, TrafficEntry entry)
+    {
+        var tl = e.TimeLine;
+        if (tl is null || tl.Count == 0)
+            return;
+
+        entry.TimingSendMs = ComputeTimingMs(tl, "Connection Ready", "Request Sent");
+        entry.TimingWaitMs = ComputeTimingMs(tl, "Request Sent", "Response Received");
+        entry.TimingReceiveMs = ComputeTimingMs(tl, "Response Received", "Response Sent");
+    }
+
+    private static double? ComputeTimingMs(Dictionary<string, DateTime> timeLine, string startKey, string endKey)
+    {
+        if (!timeLine.TryGetValue(startKey, out var start) || !timeLine.TryGetValue(endKey, out var end))
+            return null;
+
+        var ms = (end - start).TotalMilliseconds;
+        return ms >= 0 ? ms : null;
+    }
+
+    // Reads the actual server IP from Titanium's internal TcpServerConnection via reflection.
+    // UpStreamEndPoint on HttpWebClient is a user-settable override (defaults null), not the
+    // resolved server address. The real IP lives on TcpSocket.RemoteEndPoint, which is internal.
+    private static readonly FieldInfo? ConnectionField =
+        typeof(HttpWebClient).GetField("connection", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly PropertyInfo? TcpSocketProperty =
+        ConnectionField?.FieldType.GetProperty("TcpSocket", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+
+    private static string? GetServerIpAddress(SessionEventArgs e)
+    {
+        try
+        {
+            if (e.ServerConnectionId == Guid.Empty)
+                return null;
+
+            var connection = ConnectionField?.GetValue(e.HttpClient);
+            if (connection is null)
+                return null;
+
+            var socket = TcpSocketProperty?.GetValue(connection) as Socket;
+            return (socket?.RemoteEndPoint as IPEndPoint)?.Address?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static void CancellationCheck()
     {
         // Titanium.Web.Proxy doesn't pass CancellationTokens to handlers,
@@ -306,5 +383,6 @@ public sealed class ProxyEngine(
     {
         public required CapturedRequest Request { get; init; }
         public required DateTimeOffset StartedAt { get; init; }
+        public CapturedResponse? Response { get; set; }
     }
 }

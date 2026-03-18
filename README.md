@@ -23,7 +23,8 @@ Browser/App  ──►  HttpProxyMcp (localhost:8080)  ──►  Internet
 - **MITM proxy** intercepts HTTP and HTTPS traffic (dynamic certificate generation)
 - **Stores everything** — requests, responses, headers, bodies, timing — in SQLite
 - **Auto-configures Windows system proxy** — no manual browser setup needed (like Fiddler)
-- **MCP server** exposes 13 tools for LLMs to query and control the proxy
+- **MCP server** exposes 14 tools for LLMs to query and control the proxy
+- **HAR 1.2 export** — export captured sessions to standards-compliant HAR files with granular timings and server IPs
 
 ## Quick Start
 
@@ -110,6 +111,7 @@ Sessions are logical groupings of captured traffic (e.g., "testing login flow", 
 | `SearchBodies` | Search through request/response bodies | `searchText`, `limit` |
 | `GetStatistics` | Traffic stats by method, status, host | `sessionId` (optional) |
 | `ClearTraffic` | Delete captured traffic | `sessionId` (optional) |
+| `ExportHar` | Export session traffic to HAR 1.2 file | `sessionId`, `filePath` |
 
 ## Sample Prompts
 
@@ -256,6 +258,39 @@ All traffic is persisted to a SQLite database (`traffic.db`) using Dapper:
 - Bodies stored as BLOBs (up to 10MB per body by default)
 - Foreign key cascading: deleting a session deletes its traffic
 
+### HAR 1.2 Export
+
+The `ExportHar` tool exports captured traffic to a standards-compliant HAR 1.2 JSON file:
+
+```
+Export traffic session to HAR file for analysis in browser DevTools, Charles, Fiddler, or other tools
+```
+
+**Parameters:**
+- `sessionId` — Session GUID to export
+- `filePath` — Output path for the .har file (UTF-8 encoded, no BOM)
+
+**Captured Data:**
+Each HAR entry includes:
+- Request/response headers, cookies, query strings, HTTP methods
+- Request/response bodies (base64 for binary, UTF-8 text for text types)
+- HTTP version (HTTP/1.1, HTTP/2.0, etc.)
+- Server IP address (resolved IP of upstream server)
+- Granular timings: send, wait, receive (milliseconds)
+- Status codes, content types, redirect URLs
+- Entry timestamps (ISO 8601 format)
+
+**Database Schema:**
+The proxy automatically captures 6 new fields for HAR export on startup:
+- `request_http_version` (HTTP version of request)
+- `response_http_version` (HTTP version of response)
+- `server_ip_address` (resolved server IP)
+- `timing_send_ms` (request send duration)
+- `timing_wait_ms` (time waiting for response)
+- `timing_receive_ms` (response receive duration)
+
+These fields are added transparently to existing databases via `ALTER TABLE` — old captured traffic remains intact with NULL values for these fields.
+
 ### Architecture
 
 ```
@@ -263,7 +298,7 @@ src/
 ├── HttpProxyMcp.Core/       Models & interfaces
 ├── HttpProxyMcp.Proxy/      MITM proxy engine + certificate manager + system proxy
 ├── HttpProxyMcp.Storage/    SQLite persistence (Dapper)
-└── HttpProxyMcp.McpServer/  MCP stdio server, 13 tools, hosted service
+└── HttpProxyMcp.McpServer/  MCP stdio server, 14 tools, hosted service
 tests/
 └── HttpProxyMcp.Tests/      tests (xUnit + NSubstitute + FluentAssertions)
 ```
