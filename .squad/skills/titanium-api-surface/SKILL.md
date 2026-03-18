@@ -79,4 +79,6 @@ double? waitMs = tl.ContainsKey("Response Received") && tl.ContainsKey("Request 
 - Do NOT use `e.WebSession` — it is deprecated; use `e.HttpClient`
 - Do NOT assume all TimeLine keys exist — connection reuse may skip `"Connection Ready"`
 - Do NOT assume `UpStreamEndPoint` is always populated — it may be null for failed connections
+- Do NOT use `UpStreamEndPoint` to get the actual server IP — it is a user-settable override for the outgoing NIC/endpoint (defaults null). The real server IP is on `TcpServerConnection.TcpSocket.RemoteEndPoint` (internal, requires reflection)
+- Do NOT read `TimeLine["Response Sent"]` in `BeforeResponse` — it is only populated after the response body is sent to the client (use `AfterResponse`)
 - Do NOT try to get timing data from `.NET Stopwatch` separately — use TimeLine for consistency

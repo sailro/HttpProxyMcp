@@ -75,4 +75,64 @@ _(Session learnings will be appended here)
 - Tank: Populate these fields in CaptureRequest/CaptureResponse
 - After Phase 1 complete: Mouse implements HAR export serializer (Phase 2)
 
-**Status:** Awaiting implementation — no blocking issues identified
+**Status:** ✅ Implemented (2026-03-18)
+
+### HAR 1.2 Capture Implementation (2026-03-18)
+
+**Changes to `src/HttpProxyMcp.Proxy/ProxyEngine.cs`:**
+
+1. **HTTP Version capture** — `CaptureRequest()` and `CaptureResponse()` now extract `e.HttpClient.Request.HttpVersion` / `e.HttpClient.Response.HttpVersion` (System.Version) and format as `"HTTP/{Major}.{Minor}"` via new `FormatHttpVersion()` helper. Null-safe — returns null if Titanium doesn't provide a version.
+
+2. **Server IP Address** — `OnBeforeResponse()` now reads `e.HttpClient.UpStreamEndPoint?.Address?.ToString()` and sets `TrafficEntry.ServerIpAddress`. Null-safe for failed connections.
+
+3. **Granular Timings** — New `ExtractTimings()` and `ComputeTimingMs()` static helpers compute HAR-style timing phases from Titanium's `e.TimeLine` dictionary:
+   - `TimingSendMs` = `"Connection Ready"` → `"Request Sent"` (time to send request)
+   - `TimingWaitMs` = `"Request Sent"` → `"Response Received"` (TTFB)
+   - `TimingReceiveMs` = `"Response Received"` → `"Response Sent"` (download time)
+   - Each phase independently nullable — missing TimeLine keys (e.g., connection reuse skips "Connection Ready") leave that phase null
+   - Negative durations rejected (returns null) as a safety guard
+
+**Model properties verified present** (Mouse added in parallel):
+- `CapturedRequest.HttpVersion` (string?) ✓
+- `CapturedResponse.HttpVersion` (string?) ✓
+- `TrafficEntry.ServerIpAddress` (string?) ✓
+- `TrafficEntry.TimingSendMs` (double?) ✓
+- `TrafficEntry.TimingWaitMs` (double?) ✓
+- `TrafficEntry.TimingReceiveMs` (double?) ✓
+
+**Build:** Clean — 0 warnings, 0 errors
+**Tests:** 133 total, 0 failed, 1 skipped (existing non-Windows skip)
+
+### Timing & ServerIP Capture Fix (2026-03-18)
+
+**Problem:** HAR export showed serverIPAddress=null for all entries (0/253 populated) and timings showed send=0, wait=total, receive=0.
+
+**Root Causes Identified:**
+
+1. **ServerIPAddress always null** — `e.HttpClient.UpStreamEndPoint` is a user-settable *override* property on `HttpWebClient`, not the actual resolved server IP. It defaults to null and stays null unless explicitly set by the caller. The real server IP lives on the internal `TcpServerConnection.TcpSocket.RemoteEndPoint`, which is not exposed through Titanium's public API.
+
+2. **TimingReceiveMs always null** — `TimeLine["Response Sent"]` is populated *after* `BeforeResponse` fires (response body is copied to client between BeforeResponse and the "Response Sent" timestamp). So our code in `OnBeforeResponse` couldn't read this key — it didn't exist yet.
+
+**Fixes Applied to `src/HttpProxyMcp.Proxy/ProxyEngine.cs`:**
+
+1. **Moved TrafficEntry construction from `OnBeforeResponse` to new `OnAfterResponse` handler** — `AfterResponse` fires after the response is fully sent to the client, meaning all TimeLine keys ("Session Created", "Connection Ready", "Request Sent", "Response Received", "Response Sent") are populated. Body capture still happens in `BeforeResponse` (required — body is streamed to client after that handler).
+
+2. **Split capture flow across two handlers:**
+   - `OnBeforeResponse`: Captures response headers + body, stores in `TrafficCapture.Response` (UserData)
+   - `OnAfterResponse`: Reads TrafficCapture from UserData, builds TrafficEntry with server IP + full timings, fires `TrafficCaptured` event
+
+3. **Replaced `UpStreamEndPoint` with reflection-based `GetServerIpAddress()`** — Accesses the internal `HttpWebClient.connection` field → `TcpServerConnection.TcpSocket` → `Socket.RemoteEndPoint` to get the actual resolved server IP. Uses cached `FieldInfo`/`PropertyInfo` for performance. Wrapped in try/catch returning null if reflection fails (future Titanium version changes).
+
+4. **Extended `TrafficCapture` context** — Added `CapturedResponse? Response` property so BeforeResponse can store its work for AfterResponse to consume.
+
+**Key Titanium.Web.Proxy Learnings:**
+
+- **`HttpWebClient.UpStreamEndPoint`** is NOT the server's IP — it's a user-configurable NIC/endpoint override. The XML doc says "Override UpStreamEndPoint for this request; Local NIC via request is made." Always null by default.
+- **`ProxyServer.UpStreamEndPoint`** is the same concept at server level — a global override, not the connected IP.
+- **`TcpServerConnection.TcpSocket.RemoteEndPoint`** is the actual resolved server IP — but it's internal.
+- **Event lifecycle:** `BeforeRequest` → connection → "Connection Ready" → request sent → "Request Sent" → response received → "Response Received" → `BeforeResponse` → response streamed to client → "Response Sent" → `AfterResponse` → `Dispose()`
+- **`AfterResponse` fires in `finally` block** — runs even on exceptions, before `Dispose()` clears UserData/connection
+- **`OnRequestBodyWrite` / `OnResponseBodyWrite` are DEBUG-only** events (behind `#if DEBUG` in Titanium source)
+
+**Build:** Clean — 0 warnings, 0 errors
+**Tests:** 133 total (132 passed, 1 skipped — existing non-Windows skip)

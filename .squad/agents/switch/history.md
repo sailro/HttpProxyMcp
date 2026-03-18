@@ -101,3 +101,26 @@ Also cleaned up a stale bullet in this history file referencing "when Tank and M
 - **NSubstitute event tracking:** NSubstitute properly tracks `+=` and `-=` on mocked events — `Raise.Event` only fires to currently-subscribed handlers.
 - **WAL mode VACUUM testing:** File size comparisons (db + wal + shm) are unreliable with WAL mode. Used `PRAGMA page_count` with WAL checkpoint before measuring — page count drops after DELETE + VACUUM, stays same after DELETE alone.
 - **xUnit v3 Assert.Skip:** Works for conditional platform skipping (non-Windows test skipped on Windows, runs on Ubuntu CI).
+
+### HAR 1.2 Field Tests (2026-03-18)
+
+**10 new tests written and passing.** Total test count: 133 (132 pass, 1 skipped on Windows).
+
+#### New Test Files
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `Storage/HarFieldsTests.cs` | 6 | Round-trip of all 6 HAR fields, null fields, partial fields, zero timings, IPv6 address, existing fields unaffected |
+| `Storage/MigrationTests.cs` | 4 | Fresh DB schema includes HAR columns, old schema migration adds columns, idempotent InitializeAsync, old data preserved after migration |
+
+#### TrafficEntryBuilder Extensions
+- `WithHttpVersion(requestVersion, responseVersion)` — sets CapturedRequest.HttpVersion and CapturedResponse.HttpVersion
+- `WithServerIpAddress(ip)` — sets TrafficEntry.ServerIpAddress
+- `WithTimings(sendMs, waitMs, receiveMs)` — sets TrafficEntry.TimingSendMs/WaitMs/ReceiveMs
+
+#### Key Observations
+- Mouse already implemented all storage changes (CREATE TABLE, ALTER TABLE migration, INSERT/SELECT, MapToEntry) — tests verify the contract is fulfilled
+- Zero-valued timings (0.0) are correctly distinguished from null — important for HAR spec compliance
+- IPv6 addresses round-trip correctly through TEXT columns
+- Old schema migration preserves existing data while adding new nullable columns
+- All 10 tests are integration tests using real SQLite (marked `[Trait("Category", "Integration")]`)
