@@ -90,6 +90,36 @@
 - TimeLine property: `e.TimeLine` dictionary on `SessionEventArgsBase`
 - Capture helpers: `ProxyEngine.cs` lines 239-271 (`CaptureRequest`, `CaptureResponse`)
 
+### Database Schema Migration Strategy for HAR 1.2 Export (2026-03-15)
+
+**Problem:** Adding 6 columns to traffic_entries table. What happens to existing users with old 24-column DBs?
+
+**Key Findings:**
+1. **INSERT pattern is safe** — SaveTrafficEntryAsync uses explicit column lists, so new columns are optional
+2. **SELECT * breaks** — GetTrafficEntryAsync uses `SELECT *`; Dapper tries to map 6 new columns to TrafficRow, fails with InvalidOperationException
+3. **CREATE TABLE IF NOT EXISTS is NOT sufficient** — doesn't add missing columns to existing tables
+
+**Critical Discovery:** SQL query patterns in use:
+- List views (QueryTrafficAsync, SearchBodiesAsync): explicit column enumeration ✅ safe
+- Detail view (GetTrafficEntryAsync): `SELECT *` ❌ breaks on schema drift
+- Statistics queries: aggregate with specific columns ✅ safe
+
+**Recommended Migration Strategy:** ALTER TABLE with PRAGMA table_info idempotency check
+- Query `PRAGMA table_info(traffic_entries)` in InitializeAsync to detect existing columns
+- For each new column, check if it exists; if not, run `ALTER TABLE ADD COLUMN`
+- SQLite's ALTER TABLE is fast and doesn't rewrite the table
+- Old rows automatically get NULL for new columns; new rows capture HAR data
+- Transparent to users — runs on first startup after upgrade
+
+**Why this approach:**
+- Simplest implementation (1 query + 6 conditional ALTERs)
+- Idempotent (safe to re-run)
+- Zero user action required
+- Data-safe (no recreation, no copy risk)
+- Aligns with existing pattern (extends InitializeAsync)
+
+**Decision document:** `.squad/decisions/inbox/morpheus-db-migration.md`
+
 ### User Preferences
 - User: Sebastien Lebreton
 - Prefers Titanium.Web.Proxy for MITM (not raw Kestrel)

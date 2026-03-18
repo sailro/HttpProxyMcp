@@ -238,6 +238,55 @@
 
 **Non-blocking Status:** This is non-blocking research. No user has reported TLS detectability as issue. Document limitation in README if needed in future.
 
+### 11. Database Schema Migration Strategy for HAR 1.2 Export (Morpheus — 2026-03-15)
+
+**Status:** ✅ Approved for Implementation
+
+**Problem:** Adding 6 new columns to `traffic_entries` table for HAR 1.2 export. What happens to existing user databases with old 24-column schema?
+
+**Critical Finding:** `CREATE TABLE IF NOT EXISTS` is idempotent but doesn't migrate existing tables. Code uses `SELECT *` in `GetTrafficEntryAsync`, so Dapper would fail mapping 6 non-existent columns when reading old databases → **InvalidOperationException on first traffic capture after upgrade**.
+
+**Solution: Option A (ALTER TABLE with IF NOT EXISTS checks)**
+
+Migration runs transparently in `SqliteTrafficStore.InitializeAsync()`:
+1. Query `PRAGMA table_info(traffic_entries)` to detect existing columns
+2. For each of 6 new columns, check if it exists; if not, run `ALTER TABLE ADD COLUMN <name> <type>`
+3. SQLite's ALTER TABLE is fast (no table rewrite); old rows auto-populate NULL for new columns
+4. New INSERTs capture HAR data; old rows remain intact
+
+**New Columns:**
+- `request_http_version` (TEXT)
+- `response_http_version` (TEXT)
+- `server_ip_address` (TEXT)
+- `timing_send_ms` (REAL)
+- `timing_wait_ms` (REAL)
+- `timing_receive_ms` (REAL)
+
+**Implementation Details:**
+1. **SqliteTrafficStore.cs: InitializeAsync()** — Add ALTER TABLE migration block after CREATE TABLE
+2. **TrafficRow.cs** — Add 6 new nullable properties (mapped via Dapper's MatchNamesWithUnderscores)
+3. **SaveTrafficEntryAsync** — Update INSERT to populate new columns when provided by ProxyEngine
+4. **TrafficEntry model** — Add corresponding properties for HAR export tool
+
+**Why This Approach:**
+- **Idempotent:** PRAGMA check prevents re-runs from failing
+- **User experience:** Automatic; no manual intervention required
+- **Data integrity:** All existing traffic preserved; new columns NULL for old rows
+- **Performance:** SQLite's ALTER TABLE efficient; doesn't impact existing data
+- **Simplicity:** Minimal code; extends existing InitializeAsync pattern without versioning complexity
+
+**Testing:**
+- Unit test: Old 24-column DB → ALTER TABLE runs → new columns exist
+- Unit test: InitializeAsync idempotency (run twice, no errors)
+- Integration test: Old DB → upgrade → new traffic capture → HAR export works
+
+**Consequences:**
+- Zero user impact; transparent on next startup
+- Full HAR 1.2 field support for new captures post-upgrade
+- Existing entries exported with null/missing fields (spec-compliant)
+
+**Owner:** Mouse (Storage layer) — implement in SqliteTrafficStore during HAR 1.2 phase
+
 ---
 
 ## Governance

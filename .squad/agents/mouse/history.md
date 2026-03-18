@@ -121,3 +121,64 @@ _(Session learnings will be appended here)
 - DateTimeOffset as ISO 8601 TEXT; Guid as TEXT
 - All queries parameterized via DynamicParameters
 - Connection-per-operation (driver handles pooling)
+
+### Database Schema Migration Strategy for HAR 1.2 Export (2026-03-18)
+
+**Context from Morpheus:** DB migration impact analysis completed. Identified backward compatibility risk: adding 6 new columns to `traffic_entries` table would crash old user databases on `SELECT *` queries (Dapper mapping failure).
+
+**Decision:** Implement Option A — `ALTER TABLE ADD COLUMN` with idempotency check via `PRAGMA table_info`.
+
+**My (Mouse's) Implementation Responsibilities:**
+
+1. **SqliteTrafficStore.InitializeAsync():**
+   - After CREATE TABLE IF NOT EXISTS block, add migration block:
+   ```csharp
+   var existingColumns = await conn.QueryAsync<dynamic>("PRAGMA table_info(traffic_entries)");
+   var columnNames = existingColumns.Select(c => (string)c.name).ToHashSet();
+   
+   if (!columnNames.Contains("request_http_version"))
+       await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN request_http_version TEXT");
+   if (!columnNames.Contains("response_http_version"))
+       await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN response_http_version TEXT");
+   if (!columnNames.Contains("server_ip_address"))
+       await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN server_ip_address TEXT");
+   if (!columnNames.Contains("timing_blocked_ms"))
+       await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN timing_blocked_ms REAL");
+   if (!columnNames.Contains("timing_send_ms"))
+       await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN timing_send_ms REAL");
+   if (!columnNames.Contains("timing_wait_ms"))
+       await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN timing_wait_ms REAL");
+   if (!columnNames.Contains("timing_receive_ms"))
+       await conn.ExecuteAsync("ALTER TABLE traffic_entries ADD COLUMN timing_receive_ms REAL");
+   ```
+
+2. **TrafficRow.cs (Dapper DTO):**
+   - Add 7 new nullable properties (matched via MatchNamesWithUnderscores):
+   ```csharp
+   public string? RequestHttpVersion { get; set; }      // maps to request_http_version
+   public string? ResponseHttpVersion { get; set; }     // maps to response_http_version
+   public string? ServerIpAddress { get; set; }         // maps to server_ip_address
+   public double? TimingBlockedMs { get; set; }         // maps to timing_blocked_ms
+   public double? TimingSendMs { get; set; }            // maps to timing_send_ms
+   public double? TimingWaitMs { get; set; }            // maps to timing_wait_ms
+   public double? TimingReceiveMs { get; set; }         // maps to timing_receive_ms
+   ```
+
+3. **SaveTrafficEntryAsync:**
+   - Update INSERT to populate new columns when provided by Tank's ProxyEngine changes
+   - Will receive HttpVersion, ServerIp, and timing data from CaptureRequest/CaptureResponse helpers
+
+4. **HAR Export Tool (Phase 2, after Tank completes):**
+   - Implement `ExportAsHar(string session_id)` MCP tool
+   - Derivable fields computed at export time (cookies, queryString NVPs, header sizes)
+   - Format timestamps as ISO 8601, encode bodies as base64
+
+**Dependencies:**
+- Tank must populate HttpVersion, ServerIpAddress, and timing fields in ProxyEngine capture handlers
+- Phase 1 (DB schema + Dapper mapping) can proceed independently
+- Phase 2 (HAR export tool) waits for Tank + Phase 1 completion
+
+**Testing Plan:**
+- Unit: Old 24-column DB + InitializeAsync → columns added
+- Unit: InitializeAsync idempotency
+- Integration: Old DB → upgrade → traffic capture → HAR export
