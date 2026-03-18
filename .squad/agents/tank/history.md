@@ -55,3 +55,24 @@ _(Session learnings will be appended here)
 - **Phased Approach:** Phase 0 (accept now), Phase 1 (factory abstraction), Phase 2 (proxy-in-proxy or external factories)
 - **Key Insight:** Both core and Titanium.Web.Proxy tightly coupled to SslStream; fingerprinting hiding better solved as external proxy wrapper than core integration
 - **Non-blocking:** No changes needed now; architecture is extensible for future if required
+
+### HAR 1.2 Export — Phase 1 Preparation (2026-03-18)
+
+**Context:** Morpheus completed gap analysis; identified 7 new capture fields needed for high-quality HAR export. Tank's responsibility: Add these fields to CapturedRequest/CapturedResponse capture logic in ProxyEngine.
+
+**Fields to Capture (in ProxyEngine.CaptureRequest/CaptureResponse):**
+1. **`CapturedRequest.HttpVersion`** — `e.HttpClient.Request.HttpVersion` → format as `"HTTP/{Major}.{Minor}"`
+2. **`CapturedResponse.HttpVersion`** — `e.HttpClient.Response.HttpVersion` → format as `"HTTP/{Major}.{Minor}"`
+3. **`TrafficEntry.ServerIpAddress`** — `e.HttpClient.UpStreamEndPoint?.Address.ToString()`
+4. **`TrafficEntry.TimingBlockedMs`** — `(TimeLine["Connection Ready"] - TimeLine["Session Created"]).TotalMilliseconds`
+5. **`TrafficEntry.TimingSendMs`** — `(TimeLine["Request Sent"] - TimeLine["Connection Ready"]).TotalMilliseconds`
+6. **`TrafficEntry.TimingWaitMs`** — `(TimeLine["Response Received"] - TimeLine["Request Sent"]).TotalMilliseconds`
+7. **`TrafficEntry.TimingReceiveMs`** — `(TimeLine["Response Sent"] - TimeLine["Response Received"]).TotalMilliseconds`
+
+**Dependencies:**
+- Mouse: Add 7 new columns to `traffic_entries` table (DB migration)
+- Mouse: Extend TrafficRow DTO with 7 new fields
+- Tank: Populate these fields in CaptureRequest/CaptureResponse
+- After Phase 1 complete: Mouse implements HAR export serializer (Phase 2)
+
+**Status:** Awaiting implementation — no blocking issues identified

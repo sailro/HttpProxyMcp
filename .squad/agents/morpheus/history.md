@@ -61,6 +61,35 @@
 - MCP host: `src/HttpProxyMcp.McpServer/Program.cs` + `ProxyHostedService.cs` + `ServiceRegistration.cs`
 - Tests: `tests/HttpProxyMcp.Tests/ModelTests.cs`
 
+### HAR 1.2 Export Gap Analysis (2026-03-15)
+
+**Scope:** Full field-by-field analysis of HAR 1.2 specification vs current data model and Titanium.Web.Proxy API surface.
+
+**Key Discoveries:**
+1. **Titanium `TimeLine` dictionary** — `SessionEventArgs.TimeLine` is `Dictionary<string, DateTime>` with keys: `"Session Created"`, `"Connection Ready"`, `"Request Sent"`, `"Response Received"`, `"Response Sent"`. Maps directly to HAR timing fields (blocked, send, wait, receive). We never captured this.
+2. **HttpVersion available** — `e.HttpClient.Request.HttpVersion` and `e.HttpClient.Response.HttpVersion` are `System.Version` properties. We never mapped them.
+3. **Server IP available** — `e.HttpClient.UpStreamEndPoint?.Address` (IPEndPoint) provides resolved server IP. Note: `e.WebSession` is deprecated alias for `e.HttpClient`.
+4. **Connection ID available** — `e.ServerConnectionId` (Guid) for TCP connection tracking.
+
+**Recommended Model Changes (7 new fields):**
+- `CapturedRequest.HttpVersion` (string?) — from `e.HttpClient.Request.HttpVersion`
+- `CapturedResponse.HttpVersion` (string?) — from `e.HttpClient.Response.HttpVersion`
+- `TrafficEntry.ServerIpAddress` (string?) — from `e.HttpClient.UpStreamEndPoint?.Address`
+- `TrafficEntry.TimingSendMs` (double?) — `TimeLine["Request Sent"] - TimeLine["Connection Ready"]`
+- `TrafficEntry.TimingWaitMs` (double?) — `TimeLine["Response Received"] - TimeLine["Request Sent"]`
+- `TrafficEntry.TimingReceiveMs` (double?) — `TimeLine["Response Sent"] - TimeLine["Response Received"]`
+- `TrafficEntry.TimingBlockedMs` (double?) — `TimeLine["Connection Ready"] - TimeLine["Session Created"]`
+
+**Verdict:** Can produce valid, high-quality HAR 1.2 with these changes. Without them, still valid but with defaults. Derivable fields (cookies, queryString NVPs, header sizes) computed at export time.
+
+**Decision document:** `.squad/decisions/inbox/morpheus-har-gap-analysis.md`
+
+### Key File Paths (Updated)
+- Titanium API types used: `Titanium.Web.Proxy.EventArguments.SessionEventArgs`, `Titanium.Web.Proxy.Http.Request`, `Titanium.Web.Proxy.Http.Response`, `Titanium.Web.Proxy.Http.HttpWebClient`
+- Server IP property: `e.HttpClient.UpStreamEndPoint?.Address` (NOT `e.WebSession.ServerEndPoint`)
+- TimeLine property: `e.TimeLine` dictionary on `SessionEventArgsBase`
+- Capture helpers: `ProxyEngine.cs` lines 239-271 (`CaptureRequest`, `CaptureResponse`)
+
 ### User Preferences
 - User: Sebastien Lebreton
 - Prefers Titanium.Web.Proxy for MITM (not raw Kestrel)

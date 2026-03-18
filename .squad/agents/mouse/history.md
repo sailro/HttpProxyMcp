@@ -9,7 +9,35 @@
 
 ## Learnings
 
-### Post-Session Alignment Audit & Cross-Agent Verification (2026-03-12)
+### HAR 1.2 Export — Phase 1 Preparation (2026-03-18)
+
+**Context:** Morpheus completed gap analysis; identified 7 new capture fields needed for high-quality HAR export. Mouse's responsibility: Storage layer changes (DB schema + Dapper mapping) + later implement HAR export tool.
+
+**Phase 1 — Storage Changes (Mouse):**
+1. **DB Migration:** Add 7 new columns to `traffic_entries` table:
+   - `request_http_version` (TEXT) — e.g., "HTTP/1.1", "HTTP/2.0"
+   - `response_http_version` (TEXT) — e.g., "HTTP/1.1", "HTTP/2.0"
+   - `server_ip_address` (TEXT) — resolved server IP, e.g., "192.0.2.1"
+   - `timing_blocked_ms` (REAL) — milliseconds from Session Created to Connection Ready
+   - `timing_send_ms` (REAL) — milliseconds from Connection Ready to Request Sent
+   - `timing_wait_ms` (REAL) — milliseconds from Request Sent to Response Received
+   - `timing_receive_ms` (REAL) — milliseconds from Response Received to Response Sent
+
+2. **TrafficRow DTO:** Add 7 properties (snake_case names matched via Dapper's MatchNamesWithUnderscores)
+
+3. **SqliteTrafficStore:** Update SaveTrafficEntryAsync to populate all 7 fields
+
+**Phase 2 — HAR Export Tool (Mouse, after Tank + Mouse complete Phase 1):**
+- New MCP tool: `ExportAsHar` (session_id) → returns HAR 1.2 JSON
+- Derivable fields computed at export time: cookies, queryString NVPs, header sizes
+- Format timestamps as ISO 8601, encode bodies as base64
+
+**Dependencies:**
+- Tank: Populate HttpVersion + ServerIpAddress + TimingMs fields in ProxyEngine.CaptureRequest/CaptureResponse
+- Mouse: DB schema + Dapper mapping (Phase 1a)
+- Mouse: HAR export tool (Phase 2, after Tank finishes)
+
+**Status:** Awaiting Tank's capture changes — no blocking issues identified
 
 **Audit Scope:** Verify MCP tools, storage layer, and hosted service alignment after recent changes.
 
