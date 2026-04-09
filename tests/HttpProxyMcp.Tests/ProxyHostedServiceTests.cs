@@ -13,220 +13,220 @@ namespace HttpProxyMcp.Tests;
 // session assignment, and graceful shutdown behavior.
 public class ProxyHostedServiceTests : IAsyncDisposable
 {
-    private readonly ITrafficStore _store;
-    private readonly ISessionManager _sessionManager;
-    private readonly IProxyEngine _proxyEngine;
-    private readonly ILogger<ProxyHostedService> _logger;
-    private readonly ProxyHostedService _service;
+	private readonly ITrafficStore _store;
+	private readonly ISessionManager _sessionManager;
+	private readonly IProxyEngine _proxyEngine;
+	private readonly ILogger<ProxyHostedService> _logger;
+	private readonly ProxyHostedService _service;
 
-    public ProxyHostedServiceTests()
-    {
-        _store = Substitute.For<ITrafficStore>();
-        _sessionManager = Substitute.For<ISessionManager>();
-        _proxyEngine = Substitute.For<IProxyEngine>();
-        _logger = Substitute.For<ILogger<ProxyHostedService>>();
-        _service = new ProxyHostedService(_store, _sessionManager, _proxyEngine, _logger);
-    }
+	public ProxyHostedServiceTests()
+	{
+		_store = Substitute.For<ITrafficStore>();
+		_sessionManager = Substitute.For<ISessionManager>();
+		_proxyEngine = Substitute.For<IProxyEngine>();
+		_logger = Substitute.For<ILogger<ProxyHostedService>>();
+		_service = new ProxyHostedService(_store, _sessionManager, _proxyEngine, _logger);
+	}
 
-    public async ValueTask DisposeAsync()
-    {
-        try { await _service.StopAsync(CancellationToken.None); } catch { }
-        _service.Dispose();
-    }
+	public async ValueTask DisposeAsync()
+	{
+		try { await _service.StopAsync(CancellationToken.None); } catch { }
+		_service.Dispose();
+	}
 
-    // BackgroundService.ExecuteAsync runs asynchronously; give it time to initialize
-    private async Task StartServiceAsync()
-    {
-        await _service.StartAsync(CancellationToken.None);
-        await Task.Delay(100);
-    }
+	// BackgroundService.ExecuteAsync runs asynchronously; give it time to initialize
+	private async Task StartServiceAsync()
+	{
+		await _service.StartAsync(CancellationToken.None);
+		await Task.Delay(100);
+	}
 
-    #region ExecuteAsync
+	#region ExecuteAsync
 
-    [Fact]
-    public async Task ExecuteAsync_InitializesStore()
-    {
-        await StartServiceAsync();
+	[Fact]
+	public async Task ExecuteAsync_InitializesStore()
+	{
+		await StartServiceAsync();
 
-        await _store.Received(1).InitializeAsync(Arg.Any<CancellationToken>());
-    }
+		await _store.Received(1).InitializeAsync(Arg.Any<CancellationToken>());
+	}
 
-    [Fact]
-    public async Task ExecuteAsync_WiresTrafficCapturedEvent()
-    {
-        var sessionId = Guid.NewGuid();
-        _sessionManager.ActiveSessionId.Returns(sessionId);
+	[Fact]
+	public async Task ExecuteAsync_WiresTrafficCapturedEvent()
+	{
+		var sessionId = Guid.NewGuid();
+		_sessionManager.ActiveSessionId.Returns(sessionId);
 
-        await StartServiceAsync();
+		await StartServiceAsync();
 
-        var entry = TrafficEntryBuilder.Get().Build();
-        _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
+		var entry = TrafficEntryBuilder.Get().Build();
+		_proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+		await Task.Delay(100, TestContext.Current.CancellationToken);
 
-        await _store.Received(1).SaveTrafficEntryAsync(
-            Arg.Is<TrafficEntry>(e => e.SessionId == sessionId),
-            Arg.Any<CancellationToken>());
-    }
+		await _store.Received(1).SaveTrafficEntryAsync(
+			Arg.Is<TrafficEntry>(e => e.SessionId == sessionId),
+			Arg.Any<CancellationToken>());
+	}
 
-    #endregion
+	#endregion
 
-    #region OnTrafficCaptured
+	#region OnTrafficCaptured
 
-    [Fact]
-    public async Task OnTrafficCaptured_WhenNoActiveSession_CreatesDefaultSession()
-    {
-        var newSession = new ProxySession { Id = Guid.NewGuid(), Name = "default" };
-        _sessionManager.ActiveSessionId.Returns((Guid?)null);
-        _sessionManager.CreateSessionAsync("default", Arg.Any<CancellationToken>())
-            .Returns(newSession);
+	[Fact]
+	public async Task OnTrafficCaptured_WhenNoActiveSession_CreatesDefaultSession()
+	{
+		var newSession = new ProxySession { Id = Guid.NewGuid(), Name = "default" };
+		_sessionManager.ActiveSessionId.Returns((Guid?)null);
+		_sessionManager.CreateSessionAsync("default", Arg.Any<CancellationToken>())
+			.Returns(newSession);
 
-        await StartServiceAsync();
+		await StartServiceAsync();
 
-        var entry = TrafficEntryBuilder.Get().Build();
-        _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
+		var entry = TrafficEntryBuilder.Get().Build();
+		_proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+		await Task.Delay(100, TestContext.Current.CancellationToken);
 
-        await _sessionManager.Received(1).CreateSessionAsync("default", Arg.Any<CancellationToken>());
-        await _store.Received(1).SaveTrafficEntryAsync(
-            Arg.Is<TrafficEntry>(e => e.SessionId == newSession.Id),
-            Arg.Any<CancellationToken>());
-    }
+		await _sessionManager.Received(1).CreateSessionAsync("default", Arg.Any<CancellationToken>());
+		await _store.Received(1).SaveTrafficEntryAsync(
+			Arg.Is<TrafficEntry>(e => e.SessionId == newSession.Id),
+			Arg.Any<CancellationToken>());
+	}
 
-    [Fact]
-    public async Task OnTrafficCaptured_WithActiveSession_AssignsSessionIdAndSaves()
-    {
-        var sessionId = Guid.NewGuid();
-        _sessionManager.ActiveSessionId.Returns(sessionId);
+	[Fact]
+	public async Task OnTrafficCaptured_WithActiveSession_AssignsSessionIdAndSaves()
+	{
+		var sessionId = Guid.NewGuid();
+		_sessionManager.ActiveSessionId.Returns(sessionId);
 
-        await StartServiceAsync();
+		await StartServiceAsync();
 
-        var entry = TrafficEntryBuilder.Get().Build();
-        _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
+		var entry = TrafficEntryBuilder.Get().Build();
+		_proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+		await Task.Delay(100, TestContext.Current.CancellationToken);
 
-        entry.SessionId.Should().Be(sessionId);
-        await _store.Received(1).SaveTrafficEntryAsync(entry, Arg.Any<CancellationToken>());
-    }
+		entry.SessionId.Should().Be(sessionId);
+		await _store.Received(1).SaveTrafficEntryAsync(entry, Arg.Any<CancellationToken>());
+	}
 
-    [Fact]
-    public async Task OnTrafficCaptured_WithActiveSession_DoesNotCreateNewSession()
-    {
-        _sessionManager.ActiveSessionId.Returns(Guid.NewGuid());
+	[Fact]
+	public async Task OnTrafficCaptured_WithActiveSession_DoesNotCreateNewSession()
+	{
+		_sessionManager.ActiveSessionId.Returns(Guid.NewGuid());
 
-        await StartServiceAsync();
+		await StartServiceAsync();
 
-        var entry = TrafficEntryBuilder.Get().Build();
-        _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
+		var entry = TrafficEntryBuilder.Get().Build();
+		_proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+		await Task.Delay(100, TestContext.Current.CancellationToken);
 
-        await _sessionManager.DidNotReceive().CreateSessionAsync(
-            Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
+		await _sessionManager.DidNotReceive().CreateSessionAsync(
+			Arg.Any<string>(), Arg.Any<CancellationToken>());
+	}
 
-    [Fact]
-    public async Task OnTrafficCaptured_WhenSaveThrows_DoesNotCrashService()
-    {
-        _sessionManager.ActiveSessionId.Returns(Guid.NewGuid());
-        _store.SaveTrafficEntryAsync(Arg.Any<TrafficEntry>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new InvalidOperationException("db error"));
+	[Fact]
+	public async Task OnTrafficCaptured_WhenSaveThrows_DoesNotCrashService()
+	{
+		_sessionManager.ActiveSessionId.Returns(Guid.NewGuid());
+		_store.SaveTrafficEntryAsync(Arg.Any<TrafficEntry>(), Arg.Any<CancellationToken>())
+			.ThrowsAsync(new InvalidOperationException("db error"));
 
-        await StartServiceAsync();
+		await StartServiceAsync();
 
-        var entry = TrafficEntryBuilder.Get().Build();
-        _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
+		var entry = TrafficEntryBuilder.Get().Build();
+		_proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+		await Task.Delay(100, TestContext.Current.CancellationToken);
 
-        // Service survived the error — verify the save was attempted
-        await _store.Received(1).SaveTrafficEntryAsync(entry, Arg.Any<CancellationToken>());
-    }
+		// Service survived the error — verify the save was attempted
+		await _store.Received(1).SaveTrafficEntryAsync(entry, Arg.Any<CancellationToken>());
+	}
 
-    #endregion
+	#endregion
 
-    #region StopAsync
+	#region StopAsync
 
-    [Fact]
-    public async Task StopAsync_WhenProxyRunning_StopsProxyEngine()
-    {
-        _proxyEngine.IsRunning.Returns(true);
+	[Fact]
+	public async Task StopAsync_WhenProxyRunning_StopsProxyEngine()
+	{
+		_proxyEngine.IsRunning.Returns(true);
 
-        await StartServiceAsync();
-        await _service.StopAsync(CancellationToken.None);
+		await StartServiceAsync();
+		await _service.StopAsync(CancellationToken.None);
 
-        await _proxyEngine.Received(1).StopAsync(Arg.Any<CancellationToken>());
-    }
+		await _proxyEngine.Received(1).StopAsync(Arg.Any<CancellationToken>());
+	}
 
-    [Fact]
-    public async Task StopAsync_WhenProxyNotRunning_DoesNotStopEngine()
-    {
-        _proxyEngine.IsRunning.Returns(false);
+	[Fact]
+	public async Task StopAsync_WhenProxyNotRunning_DoesNotStopEngine()
+	{
+		_proxyEngine.IsRunning.Returns(false);
 
-        await StartServiceAsync();
-        await _service.StopAsync(CancellationToken.None);
+		await StartServiceAsync();
+		await _service.StopAsync(CancellationToken.None);
 
-        await _proxyEngine.DidNotReceive().StopAsync(Arg.Any<CancellationToken>());
-    }
+		await _proxyEngine.DidNotReceive().StopAsync(Arg.Any<CancellationToken>());
+	}
 
-    [Fact]
-    public async Task StopAsync_WithActiveSession_ClosesSession()
-    {
-        var sessionId = Guid.NewGuid();
-        _sessionManager.ActiveSessionId.Returns(sessionId);
+	[Fact]
+	public async Task StopAsync_WithActiveSession_ClosesSession()
+	{
+		var sessionId = Guid.NewGuid();
+		_sessionManager.ActiveSessionId.Returns(sessionId);
 
-        await StartServiceAsync();
-        await _service.StopAsync(CancellationToken.None);
+		await StartServiceAsync();
+		await _service.StopAsync(CancellationToken.None);
 
-        await _sessionManager.Received(1).CloseSessionAsync(sessionId, Arg.Any<CancellationToken>());
-    }
+		await _sessionManager.Received(1).CloseSessionAsync(sessionId, Arg.Any<CancellationToken>());
+	}
 
-    [Fact]
-    public async Task StopAsync_WithNoActiveSession_DoesNotCloseSession()
-    {
-        _sessionManager.ActiveSessionId.Returns((Guid?)null);
+	[Fact]
+	public async Task StopAsync_WithNoActiveSession_DoesNotCloseSession()
+	{
+		_sessionManager.ActiveSessionId.Returns((Guid?)null);
 
-        await StartServiceAsync();
-        await _service.StopAsync(CancellationToken.None);
+		await StartServiceAsync();
+		await _service.StopAsync(CancellationToken.None);
 
-        await _sessionManager.DidNotReceive().CloseSessionAsync(
-            Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-    }
+		await _sessionManager.DidNotReceive().CloseSessionAsync(
+			Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+	}
 
-    [Fact]
-    public async Task StopAsync_WhenCloseSessionThrows_DoesNotThrow()
-    {
-        var sessionId = Guid.NewGuid();
-        _sessionManager.ActiveSessionId.Returns(sessionId);
-        _sessionManager.CloseSessionAsync(sessionId, Arg.Any<CancellationToken>())
-            .ThrowsAsync(new InvalidOperationException("already closed"));
+	[Fact]
+	public async Task StopAsync_WhenCloseSessionThrows_DoesNotThrow()
+	{
+		var sessionId = Guid.NewGuid();
+		_sessionManager.ActiveSessionId.Returns(sessionId);
+		_sessionManager.CloseSessionAsync(sessionId, Arg.Any<CancellationToken>())
+			.ThrowsAsync(new InvalidOperationException("already closed"));
 
-        await StartServiceAsync();
+		await StartServiceAsync();
 
-        var act = async () => await _service.StopAsync(CancellationToken.None);
+		var act = async () => await _service.StopAsync(CancellationToken.None);
 
-        await act.Should().NotThrowAsync();
-    }
+		await act.Should().NotThrowAsync();
+	}
 
-    [Fact]
-    public async Task StopAsync_UnwiresTrafficCapturedEvent()
-    {
-        _sessionManager.ActiveSessionId.Returns(Guid.NewGuid());
+	[Fact]
+	public async Task StopAsync_UnwiresTrafficCapturedEvent()
+	{
+		_sessionManager.ActiveSessionId.Returns(Guid.NewGuid());
 
-        await StartServiceAsync();
-        await _service.StopAsync(CancellationToken.None);
+		await StartServiceAsync();
+		await _service.StopAsync(CancellationToken.None);
 
-        // Raise event after stop — handler was removed, so save should not be called
-        var entry = TrafficEntryBuilder.Get().Build();
-        _proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
+		// Raise event after stop — handler was removed, so save should not be called
+		var entry = TrafficEntryBuilder.Get().Build();
+		_proxyEngine.TrafficCaptured += Raise.Event<EventHandler<TrafficEntry>>(_proxyEngine, entry);
 
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+		await Task.Delay(100, TestContext.Current.CancellationToken);
 
-        await _store.DidNotReceive().SaveTrafficEntryAsync(
-            Arg.Any<TrafficEntry>(), Arg.Any<CancellationToken>());
-    }
+		await _store.DidNotReceive().SaveTrafficEntryAsync(
+			Arg.Any<TrafficEntry>(), Arg.Any<CancellationToken>());
+	}
 
-    #endregion
+	#endregion
 }

@@ -9,51 +9,51 @@ namespace HttpProxyMcp.McpServer.Tools;
 [McpServerToolType]
 public sealed class ProxyControlTools
 {
-    [McpServerTool, Description("Start the HTTP/HTTPS proxy on the specified port")]
-    public static async Task<string> StartProxy(
-        IProxyEngine engine,
-        [Description("Port to listen on (default: 8080)")] int port = 8080,
-        [Description("Enable HTTPS MITM interception")] bool enableSsl = true,
-        [Description("Auto-configure Windows system proxy (default: true)")] bool setSystemProxy = true)
-    {
-        if (engine.IsRunning)
-            return $"Proxy is already running on port {engine.Configuration.Port}.";
+	[McpServerTool, Description("Start the HTTP/HTTPS proxy on the specified port")]
+	public static async Task<string> StartProxy(
+		IProxyEngine engine,
+		[Description("Port to listen on (default: 8080)")] int port = 8080,
+		[Description("Enable HTTPS MITM interception")] bool enableSsl = true,
+		[Description("Auto-configure Windows system proxy (default: true)")] bool setSystemProxy = true)
+	{
+		if (engine.IsRunning)
+			return $"Proxy is already running on port {engine.Configuration.Port}.";
 
-        var config = new ProxyConfiguration { Port = port, EnableSsl = enableSsl, SetSystemProxy = setSystemProxy };
+		var config = new ProxyConfiguration { Port = port, EnableSsl = enableSsl, SetSystemProxy = setSystemProxy };
 
-        try
-        {
-            await engine.StartAsync(config);
-        }
-        catch (Exception ex)
-        {
-            // Unwrap inner exceptions to surface the real cause (e.g. SocketException)
-            var rootCause = ex;
-            while (rootCause.InnerException is not null)
-                rootCause = rootCause.InnerException;
+		try
+		{
+			await engine.StartAsync(config);
+		}
+		catch (Exception ex)
+		{
+			// Unwrap inner exceptions to surface the real cause (e.g. SocketException)
+			var rootCause = ex;
+			while (rootCause.InnerException is not null)
+				rootCause = rootCause.InnerException;
 
-            return $"Failed to start proxy on port {port}: {rootCause.Message}";
-        }
+			return $"Failed to start proxy on port {port}: {rootCause.Message}";
+		}
 
-        var sysProxyMsg = setSystemProxy ? " System proxy configured." : "";
-        return $"Proxy started on port {port} (SSL interception: {enableSsl}).{sysProxyMsg}";
-    }
+		var sysProxyMsg = setSystemProxy ? " System proxy configured." : "";
+		return $"Proxy started on port {port} (SSL interception: {enableSsl}).{sysProxyMsg}";
+	}
 
-    [McpServerTool, Description("Stop the running proxy")]
-    public static async Task<string> StopProxy(IProxyEngine engine)
-    {
-        if (!engine.IsRunning)
-            return "Proxy is not running.";
+	[McpServerTool, Description("Stop the running proxy")]
+	public static async Task<string> StopProxy(IProxyEngine engine)
+	{
+		if (!engine.IsRunning)
+			return "Proxy is not running.";
 
-        await engine.StopAsync();
-        return "Proxy stopped.";
-    }
+		await engine.StopAsync();
+		return "Proxy stopped.";
+	}
 
-    [McpServerTool, Description("Get current proxy status")]
-    public static Task<string> GetProxyStatus(IProxyEngine engine)
-    {
-        return Task.FromResult(engine.IsRunning
-            ? $"Proxy is running on port {engine.Configuration.Port} (SSL: {engine.Configuration.EnableSsl})."
-            : "Proxy is not running.");
-    }
+	[McpServerTool, Description("Get current proxy status")]
+	public static Task<string> GetProxyStatus(IProxyEngine engine)
+	{
+		return Task.FromResult(engine.IsRunning
+			? $"Proxy is running on port {engine.Configuration.Port} (SSL: {engine.Configuration.EnableSsl})."
+			: "Proxy is not running.");
+	}
 }
